@@ -1,0 +1,8 @@
+export enum ATX12VType {
+  ATX12V_1_0 = 'ATX12V 1.0',
+  ATX12V_2_0 = 'ATX12V 2.0',
+  ATX12V_2_3 = 'ATX12V 2.3',
+  ATX12V_2_4 = 'ATX12V 2.4',
+  ATX12V_2_5 = 'ATX12V 2.5',
+  ATX12V0 = 'ATX12V0',
+}

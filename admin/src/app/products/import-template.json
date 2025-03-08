@@ -1,0 +1,63 @@
+{
+  "products": [
+    {
+      "name": "Intel Core i5-13600K",
+      "description": "Bộ vi xử lý thế hệ 13",
+      "price": 7990000,
+      "stock": 10,
+      "category_id": [1],
+      "is_active": true,
+      "type": "CPU",
+      "specifications": {
+        "Socket": "LGA 1700",
+        "Architecture": "Raptor Lake"
+      },
+      "images": [],
+      "socket_type": "LGA1700",
+      "cores": 14,
+      "pCores": 6,
+      "eCores": 8,
+      "threads": 20,
+      "baseClock": "3.5 GHz",
+      "boostClock": "5.1 GHz",
+      "pCoreBaseClock": "3.5 GHz",
+      "pCoreBoostClock": "5.1 GHz",
+      "eCoreBaseClock": "2.6 GHz",
+      "eCoreBoostClock": "3.9 GHz",
+      "cache": "24MB L3 + 20MB L2",
+      "tdp": 125,
+      "wattage": 181,
+      "max_memory_capacity": 128,
+      "pcie_version": "PCIe 5.0",
+      "pcie_slots": 16
+    },
+    {
+      "name": "NVIDIA GeForce RTX 4070",
+      "description": "Card đồ họa NVIDIA GeForce RTX 4070",
+      "price": 16990000,
+      "stock": 5,
+      "category_id": [2],
+      "is_active": true,
+      "type": "GPU",
+      "specifications": {
+        "Architecture": "Ada Lovelace",
+        "DLSS": "DLSS 3"
+      },
+      "images": [],
+      "chipset": "NVIDIA RTX 4070",
+      "memory_size": 12,
+      "memory_type": "GDDR6X",
+      "core_clock": "2310 MHz",
+      "boost_clock": "2610 MHz",
+      "min_psu_wattage": 650,
+      "power_connector": "8-pin",
+      "tdp": 200,
+      "cuda_cores": 5888,
+      "tensor_cores": 184,
+      "display_ports": ["HDMI", "DisplayPort"],
+      "pcie_version": "PCIe 4.0",
+      "slot_size": "2.5 slot",
+      "length": 285
+    }
+  ]
+}

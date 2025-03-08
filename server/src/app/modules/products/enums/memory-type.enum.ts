@@ -1,0 +1,12 @@
+export enum MemoryType {
+  GDDR6 = 'GDDR6',
+  GDDR6X = 'GDDR6X',
+  GDDR6X8 = 'GDDR6X8',
+  GDDR6X16 = 'GDDR6X16',
+  GDDR6X32 = 'GDDR6X32',
+  GDDR6X64 = 'GDDR6X64',
+  GDDR5X = 'GDDR5X',
+  GDDR5 = 'GDDR5',
+  GDDR4X = 'GDDR4X',
+  GDDR4 = 'GDDR4',
+}

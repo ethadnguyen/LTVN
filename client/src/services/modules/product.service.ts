@@ -1,0 +1,56 @@
+import { get } from '../api-client';
+
+interface ProductParams {
+  category_id?: string;
+  is_active?: boolean;
+}
+
+export const getActiveProducts = async (params?: ProductParams) => {
+  const res = await get('/products/all', params);
+  return res.data;
+};
+
+export const getProductById = async (id: number) => {
+  const res = await get(`/products/${id}`);
+  return res.data;
+};
+
+export const fetchCPUDetails = async (id: number) => {
+  const res = await get(`/products/cpu/${id}`);
+  return res.data;
+};
+
+export const fetchGPUDetails = async (id: number) => {
+  const res = await get(`/products/gpu/${id}`);
+  return res.data;
+};
+
+export const fetchMainboardDetails = async (id: number) => {
+  const res = await get(`/products/mainboard/${id}`);
+  return res.data;
+};
+
+export const fetchRamDetails = async (id: number) => {
+  const res = await get(`/products/ram/${id}`);
+  return res.data;
+};
+
+export const fetchStorageDetails = async (id: number) => {
+  const res = await get(`/products/storage/${id}`);
+  return res.data;
+};
+
+export const fetchPSUDetails = async (id: number) => {
+  const res = await get(`/products/psu/${id}`);
+  return res.data;
+};
+
+export const fetchCoolingDetails = async (id: number) => {
+  const res = await get(`/products/cooling/${id}`);
+  return res.data;
+};
+
+export const fetchCaseDetails = async (id: number) => {
+  const res = await get(`/products/case/${id}`);
+  return res.data;
+};
