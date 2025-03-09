@@ -1,5 +1,6 @@
 import { ProductType } from '../request/product-req';
 import { CategoryRes } from './category-res';
+import { BrandRes } from './brand-res';
 
 export interface ProductRes {
   id: number;
@@ -14,6 +15,8 @@ export interface ProductRes {
   specifications: Record<string, any>;
   created_at: string;
   updated_at: string;
+  brand_id?: number | null;
+  brand?: BrandRes | null;
 }
 
 export interface CPURes {

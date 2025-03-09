@@ -42,6 +42,11 @@ export class UpdateProductReq {
   @IsNumber({}, { each: true })
   category_id?: number[];
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  brand_id?: number;
+
   @ApiProperty({ required: false, type: [String] })
   @IsOptional()
   @IsArray()

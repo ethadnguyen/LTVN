@@ -42,6 +42,7 @@ export class GpuService {
       stock: input.stock,
       category_id: input.category_id,
       type: ProductType.GPU,
+      brand_id: input.brand_id,
     });
 
     const gpu = new GPU();

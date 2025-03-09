@@ -1,4 +1,4 @@
-import { get, post, put, del } from '../api-client';
+import { get, post, put, del } from '../api_client';
 import { AddToCartReq } from '../types/request/cart_types/add-to-cart.req';
 import { UpdateCartItemReq } from '../types/request/cart_types/update-cart-item.req';
 import { CartRes } from '../types/response/cart_types/cart';

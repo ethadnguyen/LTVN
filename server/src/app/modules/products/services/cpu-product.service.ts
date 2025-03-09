@@ -45,6 +45,7 @@ export class CpuService {
       images: input.images,
       is_active: input.is_active,
       type: ProductType.CPU,
+      brand_id: input.brand_id,
     });
 
     // Sau đó tạo CPU với id từ product

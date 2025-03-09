@@ -1,37 +1,35 @@
 'use client';
 
-import { useEffect } from 'react';
+import type React from 'react';
+
+import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
+import GoogleIcon from '@/assets/icons/google.svg';
+import FacebookIcon from '@/assets/icons/facebook.svg';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Icons } from '@/components/icons';
 import { signInSchema } from './sign-in.schema';
-import { useToast } from '@/hooks/use-toast';
 import type { z } from 'zod';
-import { useUserStore } from '@/store/useUserStore';
-import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+
+type SignInFormValues = z.infer<typeof signInSchema>;
 
 export default function LoginPage() {
-  const { login, loading, error } = useUserStore();
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  useAuth(false);
-
-  const form = useForm<z.infer<typeof signInSchema>>({
+  const form = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',
@@ -39,131 +37,159 @@ export default function LoginPage() {
     },
   });
 
-  useEffect(() => {
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Lỗi đăng nhập',
-        description: error,
-      });
-    }
-  }, [error, toast]);
+  const handleSubmit = async (values: SignInFormValues) => {
+    setIsLoading(true);
 
-  async function onSubmit(values: z.infer<typeof signInSchema>) {
     try {
-      await login(values);
-      // router.push('/');
-    } catch (error) {
-      console.error('Lỗi đăng nhập:', error);
-    }
-  }
+      // Giả lập đăng nhập
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-  async function loginWithGoogle() {
-    // Implement Google login logic here
-    toast({
-      title: 'Chưa hỗ trợ',
-      description: 'Tính năng đăng nhập bằng Google sẽ sớm được cập nhật',
-    });
-  }
+      // Sử dụng values để đăng nhập (trong trường hợp thực tế)
+      console.log('Đăng nhập với:', values.email, values.password);
+
+      toast({
+        title: 'Đăng nhập thành công',
+        description: 'Chào mừng bạn quay trở lại!',
+      });
+
+      router.push('/');
+    } catch (error: unknown) {
+      toast({
+        title: 'Đăng nhập thất bại',
+        description: 'Email hoặc mật khẩu không chính xác.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className='container relative flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0'>
-      <div className='relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex'>
-        <div className='absolute inset-0 bg-zinc-900' />
-        <div className='relative z-20 flex items-center text-lg font-medium'>
-          <Icons.logo className='mr-2 h-6 w-6' />
-          Logo
+    <div className='container max-w-md mx-auto py-12'>
+      <div className='space-y-6'>
+        <div className='space-y-2 text-center'>
+          <h1 className='text-3xl font-bold'>Đăng nhập</h1>
+          <p className='text-muted-foreground'>Đăng nhập để tiếp tục mua sắm</p>
         </div>
-        <div className='relative z-20 mt-auto'>
-          <blockquote className='space-y-2'>
-            <p className='text-lg'>
-              &ldquo;Đây là một cửa hàng tuyệt vời để mua sắm các linh kiện máy
-              tính.&rdquo;
-            </p>
-            <footer className='text-sm'>Khách hàng</footer>
-          </blockquote>
-        </div>
-      </div>
-      <div className='lg:p-8'>
-        <div className='mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]'>
-          <div className='flex flex-col space-y-2 text-center'>
-            <h1 className='text-2xl font-semibold tracking-tight'>
-              Đăng nhập vào tài khoản
-            </h1>
-            <p className='text-sm text-muted-foreground'>
-              Nhập email và mật khẩu của bạn để đăng nhập
-            </p>
-          </div>
 
-          <div className='grid gap-6'>
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className='space-y-4'
-              >
-                <FormField
-                  control={form.control}
-                  name='email'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder='example@gmail.com' {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name='password'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mật khẩu</FormLabel>
-                      <FormControl>
-                        <Input
-                          type='password'
-                          placeholder='••••••'
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button className='w-full' type='submit' disabled={loading}>
-                  {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-                  Đăng nhập
-                </Button>
-              </form>
-            </Form>
-
+        <form onSubmit={form.handleSubmit(handleSubmit)} className='space-y-4'>
+          <div className='space-y-2'>
+            <Label htmlFor='email'>Email</Label>
             <div className='relative'>
-              <div className='absolute inset-0 flex items-center'>
-                <span className='w-full border-t' />
-              </div>
-              <div className='relative flex justify-center text-xs uppercase'>
-                <span className='bg-background px-2 text-muted-foreground'>
-                  Hoặc tiếp tục với
-                </span>
-              </div>
+              <Mail className='absolute left-3 top-3 h-4 w-4 text-muted-foreground' />
+              <Input
+                id='email'
+                type='email'
+                placeholder='name@example.com'
+                className='pl-10'
+                {...form.register('email')}
+              />
             </div>
-
-            <Button variant='outline' type='button' onClick={loginWithGoogle}>
-              <Icons.google className='mr-2 h-4 w-4' />
-              Google
-            </Button>
+            {form.formState.errors.email && (
+              <p className='text-sm text-destructive'>
+                {form.formState.errors.email.message}
+              </p>
+            )}
           </div>
 
-          <p className='px-8 text-center text-sm text-muted-foreground'>
-            Chưa có tài khoản?{' '}
-            <Link
-              href='/auth/sign-up'
-              className='underline underline-offset-4 hover:text-primary'
-            >
-              Đăng ký
-            </Link>
-          </p>
+          <div className='space-y-2'>
+            <div className='flex items-center justify-between'>
+              <Label htmlFor='password'>Mật khẩu</Label>
+              <Link
+                href='/forgot-password'
+                className='text-sm text-primary hover:underline'
+              >
+                Quên mật khẩu?
+              </Link>
+            </div>
+            <div className='relative'>
+              <Lock className='absolute left-3 top-3 h-4 w-4 text-muted-foreground' />
+              <Input
+                id='password'
+                type={showPassword ? 'text' : 'password'}
+                className='pl-10 pr-10'
+                placeholder='••••••••'
+                {...form.register('password')}
+              />
+              <Button
+                type='button'
+                variant='ghost'
+                size='icon'
+                className='absolute right-0 top-0 h-10 w-10'
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOff className='h-4 w-4 text-muted-foreground' />
+                ) : (
+                  <Eye className='h-4 w-4 text-muted-foreground' />
+                )}
+                <span className='sr-only'>
+                  {showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                </span>
+              </Button>
+            </div>
+            {form.formState.errors.password && (
+              <p className='text-sm text-destructive'>
+                {form.formState.errors.password.message}
+              </p>
+            )}
+          </div>
+
+          <div className='flex items-center space-x-2'>
+            <Checkbox
+              id='remember'
+              checked={rememberMe}
+              onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+            />
+            <Label htmlFor='remember' className='text-sm font-normal'>
+              Ghi nhớ đăng nhập
+            </Label>
+          </div>
+
+          <Button type='submit' className='w-full' disabled={isLoading}>
+            {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          </Button>
+        </form>
+
+        <div className='relative'>
+          <div className='absolute inset-0 flex items-center'>
+            <Separator className='w-full' />
+          </div>
+          <div className='relative flex justify-center text-xs uppercase'>
+            <span className='bg-background px-2 text-muted-foreground'>
+              Hoặc tiếp tục với
+            </span>
+          </div>
+        </div>
+
+        <div className='grid grid-cols-2 gap-4'>
+          <Button variant='outline' className='w-full'>
+            <Image
+              src={GoogleIcon}
+              alt='Google'
+              width={20}
+              height={20}
+              className='mr-2'
+            />
+            Google
+          </Button>
+          <Button variant='outline' className='w-full'>
+            <Image
+              src={FacebookIcon}
+              alt='Facebook'
+              width={20}
+              height={20}
+              className='mr-2'
+            />
+            Facebook
+          </Button>
+        </div>
+
+        <div className='text-center text-sm'>
+          Chưa có tài khoản?{' '}
+          <Link href='/auth/sign-up' className='text-primary hover:underline'>
+            Đăng ký ngay
+          </Link>
         </div>
       </div>
     </div>

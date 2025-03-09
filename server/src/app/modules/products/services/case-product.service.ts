@@ -22,6 +22,7 @@ export class CaseService {
       price: input.price,
       stock: input.stock,
       category_id: input.category_id,
+      brand_id: input.brand_id,
       images: input.images,
       is_active: input.is_active,
     });
@@ -57,6 +58,7 @@ export class CaseService {
       is_active: input.is_active,
       images: input.images,
       specifications: input.specifications,
+      brand_id: input.brand_id,
     });
 
     const caseProperties = {

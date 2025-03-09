@@ -8,6 +8,9 @@ export class CategoryRes {
   name: string;
 
   @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
   description: string;
 
   @ApiProperty()

@@ -4,6 +4,7 @@ import { CreateCategoryInput } from './types/create-category.input';
 import { UpdateCategoryInput } from './types/update-category.input';
 import { Category } from '../entities/categories.entity';
 import { GetAllCategoryInput } from './types/get.all.category.input';
+import { generateSlug } from 'src/common/helpers';
 
 @Injectable()
 export class CategoryService {
@@ -11,7 +12,12 @@ export class CategoryService {
 
   async create(input: CreateCategoryInput): Promise<Category> {
     const category = new Category();
-    Object.assign(category, input);
+    Object.assign(category, {
+      name: input.name,
+      description: input.description,
+      slug: generateSlug(input.name),
+      is_active: input.is_active,
+    });
 
     if (input.parent_id) {
       const parent = await this.categoryRepo.findById(input.parent_id);
@@ -68,7 +74,11 @@ export class CategoryService {
         existingCategory.parent = null;
       }
 
-      if (input.name) existingCategory.name = input.name;
+      if (input.name) {
+        existingCategory.name = input.name;
+        existingCategory.slug = generateSlug(input.name);
+      }
+
       if (input.description) existingCategory.description = input.description;
       if (typeof input.is_active !== 'undefined') {
         existingCategory.is_active = input.is_active;

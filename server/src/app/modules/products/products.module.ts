@@ -37,6 +37,7 @@ import { Cooling } from './entities/cooling.entity';
 import { CoolingController } from './controllers/cooling.controller';
 import { CoolingService } from './services/cooling-product.service';
 import { CoolingRepository } from './repositories/cooling.repositories';
+import { BrandModule } from '../brand/brand.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { CoolingRepository } from './repositories/cooling.repositories';
       Cooling,
     ]),
     CategoryModule,
+    BrandModule,
   ],
   controllers: [
     ProductController,

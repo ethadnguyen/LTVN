@@ -42,6 +42,7 @@ export class PsuService {
       price: input.price,
       stock: input.stock,
       category_id: input.category_id,
+      brand_id: input.brand_id,
       images: input.images,
       is_active: input.is_active,
       type: ProductType.POWER_SUPPLY,
@@ -85,6 +86,7 @@ export class PsuService {
       images: input.images,
       is_active: input.is_active,
       specifications: input.specifications,
+      brand_id: input.brand_id,
     });
 
     const psuProperties = {

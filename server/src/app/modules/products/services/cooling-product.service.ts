@@ -24,6 +24,7 @@ export class CoolingService {
       category_id: input.category_id,
       images: input.images,
       is_active: input.is_active,
+      brand_id: input.brand_id,
     });
     const cooling = new Cooling();
     cooling.id = product.id;

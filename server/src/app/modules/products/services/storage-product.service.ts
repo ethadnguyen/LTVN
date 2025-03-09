@@ -45,6 +45,7 @@ export class StorageService {
       category_id: input.category_id,
       images: input.images,
       is_active: input.is_active,
+      brand_id: input.brand_id,
     });
     const storage = new Storage();
     storage.product = product;
@@ -72,6 +73,7 @@ export class StorageService {
       is_active: input.is_active,
       images: input.images,
       specifications: input.specifications,
+      brand_id: input.brand_id,
     });
 
     const storageProperties = {

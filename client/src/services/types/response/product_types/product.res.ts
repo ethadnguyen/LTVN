@@ -1,29 +1,22 @@
 import { CategoryRes } from '../category_types/category.res';
-import { ProductType } from '@/services/types/request/product-req';
+import { PaginationRes } from '../pagination_types/pagination-res';
 
-export type ProductCategory =
-  | 'CPU'
-  | 'MOTHERBOARD'
-  | 'RAM'
-  | 'GPU'
-  | 'STORAGE'
-  | 'PSU'
-  | 'CASE'
-  | 'COOLING';
-
-export interface Product {
-  id: string;
-  name: string;
-  price: number;
-  category: ProductCategory;
-  image: string;
-  specs: Record<string, any>;
+export const enum ProductType {
+  CPU = 'CPU',
+  MAINBOARD = 'MAINBOARD',
+  RAM = 'RAM',
+  GPU = 'GPU',
+  STORAGE = 'STORAGE',
+  POWER_SUPPLY = 'POWER_SUPPLY',
+  CASE = 'CASE',
+  COOLING = 'COOLING',
 }
 
 export interface ProductRes {
   id: number;
   name: string;
   type: ProductType;
+  slug: string;
   stock: number;
   price: number;
   category: CategoryRes;
@@ -34,12 +27,6 @@ export interface ProductRes {
   updated_at: string;
 }
 
-export interface BuilderItem {
-  product: Product;
-  quantity: number;
-}
-
-export interface Compatibility {
-  isCompatible: boolean;
-  messages: string[];
+export interface ProductListRes extends PaginationRes {
+  products: ProductRes[];
 }

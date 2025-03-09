@@ -38,6 +38,11 @@ export class CreateProductReq {
   @IsNumber({}, { each: true })
   category_id: number[];
 
+  @ApiProperty()
+  @IsNumber()
+  @IsNotEmpty()
+  brand_id: number;
+
   @ApiProperty({ enum: ProductType })
   @IsEnum(ProductType)
   type: ProductType;

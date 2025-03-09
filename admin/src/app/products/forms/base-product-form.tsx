@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { CategoryMention } from '@/components/category/category-mention';
 import { CategoryRes } from '@/services/types/response/category-res';
 import { ProductFormValues } from '../product-schema';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ProductType } from '@/services/types/request/product-req';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImagePlus, Plus, X, Link as LinkIcon } from 'lucide-react';
@@ -21,6 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { BrandRes } from '@/services/types/response/brand-res';
+import { fetchAllBrands } from '@/services/modules/brand.service';
 
 interface BaseProductFormProps {
   form: UseFormReturn<ProductFormValues>;
@@ -47,6 +49,22 @@ export const BaseProductForm = ({
 }: BaseProductFormProps) => {
   const [imageUrl, setImageUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [brands, setBrands] = useState<BrandRes[]>([]);
+
+  useEffect(() => {
+    const fetchBrands = async () => {
+      try {
+        const response = await fetchAllBrands({ is_active: true, size: 1000 });
+        if (response.data) {
+          setBrands(response.data.brands);
+        }
+      } catch (error) {
+        console.error('Error fetching brands:', error);
+      }
+    };
+
+    fetchBrands();
+  }, []);
 
   const formatCurrency = (value: number): string => {
     return value.toLocaleString('vi-VN');
@@ -149,6 +167,47 @@ export const BaseProductForm = ({
               )}
             </>
           )}
+        />
+      </div>
+
+      <div className='grid gap-2'>
+        <Label htmlFor='brand_id'>Hãng sản xuất</Label>
+        <Controller
+          name='brand_id'
+          control={form.control}
+          render={({ field, fieldState }) => {
+            const value = field.value ? field.value.toString() : 'null';
+
+            return (
+              <>
+                <Select
+                  value={value}
+                  onValueChange={(value) =>
+                    field.onChange(
+                      value === 'null' ? null : parseInt(value, 10)
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder='Chọn hãng sản xuất' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='null'>Không có hãng</SelectItem>
+                    {brands.map((brand) => (
+                      <SelectItem key={brand.id} value={brand.id.toString()}>
+                        {brand.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {fieldState.error && (
+                  <span className='text-sm text-destructive'>
+                    {fieldState.error.message}
+                  </span>
+                )}
+              </>
+            );
+          }}
         />
       </div>
 

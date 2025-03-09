@@ -1,90 +1,98 @@
 import { create } from 'zustand';
-import { UserState, UserStore, AuthState } from '@/types/user';
+import { persist } from 'zustand/middleware';
+import { UserRes } from '@/services/types/response/user_types/user.res';
 import { login } from '@/services/modules/auth.service';
-import { accessToken, refreshToken } from '@/constants';
-import { getCookie, setCookie, deleteCookie } from 'cookies-next';
-import { jwtDecode } from 'jwt-decode';
-import { z } from 'zod';
-import { signInSchema } from '@/app/auth/sign-in/sign-in.schema';
+import { getUserById, createUser } from '@/services/modules/user.service';
+import { setTokens, removeTokens } from '@/lib/cookies';
 
-const getUserFromToken = (): UserState | null => {
-  try {
-    const token = getCookie(accessToken);
-    if (token) {
-      const decoded: UserState = jwtDecode(token as string);
-      return decoded;
-    }
-  } catch (error) {
-    console.error('Lỗi giải mã token:', error);
-    return null;
-  }
-  return null;
-};
+interface UserStore {
+  user: UserRes | null;
+  loading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: {
+    email: string;
+    password: string;
+    name: string;
+    phone: string;
+  }) => Promise<void>;
+  logout: () => void;
+  clearError: () => void;
+}
 
-const initialState: AuthState = {
-  user: getUserFromToken(),
-  loading: false,
-  error: null,
-};
+export const useUserStore = create<UserStore>()(
+  persist(
+    (set) => ({
+      user: null,
+      loading: false,
+      error: null,
 
-export const useUserStore = create<UserStore>((set) => ({
-  ...initialState,
+      login: async (email, password) => {
+        try {
+          set({ loading: true, error: null });
+          const { data: response } = await login({ email, password });
 
-  login: async (credentials: z.infer<typeof signInSchema>) => {
-    try {
-      // Bắt đầu loading
-      set({ loading: true, error: null });
+          // Lưu tokens vào cookies
+          setTokens(response.access_token, response.refresh_token);
 
-      console.log('credentials', credentials);
-      const validatedCredentials = signInSchema.parse(credentials);
-      console.log('validatedCredentials', validatedCredentials);
+          // Fetch user info
+          const userInfo = await getUserById(Number(response.payload.user_id));
+          set({ user: userInfo, loading: false });
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error ? error.message : 'Đăng nhập thất bại',
+            loading: false,
+          });
+          throw error;
+        }
+      },
 
-      const response = await login(validatedCredentials);
+      register: async (data) => {
+        try {
+          set({ loading: true, error: null });
 
-      if (response.status === 200) {
-        setCookie(accessToken, response.data.access_token, {
-          maxAge: 60 * 60 * 24,
-          path: '/',
-        });
-        setCookie(refreshToken, response.data.refresh_token, {
-          maxAge: 60 * 60 * 24 * 3,
-          path: '/',
-        });
+          // Tạo user mới
+          await createUser(data);
+
+          // Đăng nhập sau khi tạo user thành công
+          const { data: response } = await login({
+            email: data.email,
+            password: data.password,
+          });
+
+          // Lưu tokens vào cookies
+          setTokens(response.access_token, response.refresh_token);
+
+          // Fetch user info
+          const userInfo = await getUserById(Number(response.payload.user_id));
+          set({ user: userInfo, loading: false });
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : 'Đăng ký thất bại',
+            loading: false,
+          });
+          throw error;
+        }
+      },
+
+      logout: () => {
+        // Xóa tokens khỏi cookies
+        removeTokens();
 
         set({
-          user: response.data.payload,
-          loading: false,
+          user: null,
           error: null,
         });
-      }
-    } catch (error) {
-      // Xử lý lỗi
-      let errorMessage = 'Đăng nhập thất bại';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
+      },
 
-      set({
-        user: null,
-        loading: false,
-        error: errorMessage,
-      });
-
-      throw error; // Re-throw để component có thể xử lý thêm nếu cần
+      clearError: () => {
+        set({ error: null });
+      },
+    }),
+    {
+      name: 'user-storage',
+      partialize: (state) => ({ user: state.user }),
     }
-  },
-
-  logout: () => {
-    // Xóa tokens
-    deleteCookie(accessToken);
-    deleteCookie(refreshToken);
-
-    // Reset state
-    set({
-      ...initialState,
-      user: null,
-    });
-  },
-
-  getUserFromToken,
-}));
+  )
+);

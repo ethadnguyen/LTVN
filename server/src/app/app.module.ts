@@ -20,6 +20,7 @@ import { PromotionModule } from './modules/promotions/promotion.module';
 import { CloudinaryModule } from 'src/common/services/upload/cloudinary.module';
 import { CartModule } from './modules/cart/cart.module';
 import { CompatibilityModule } from './modules/compatibility/compatibility.module';
+import { BrandModule } from './modules/brand/brand.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { CompatibilityModule } from './modules/compatibility/compatibility.modul
     PermissionModule,
     CategoryModule,
     ProductModule,
+    BrandModule,
     CompatibilityModule,
     OrderModule,
     ReviewModule,

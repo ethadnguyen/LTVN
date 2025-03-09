@@ -1,8 +1,11 @@
-import { get } from '../api-client';
+import { get } from '../api_client';
 
 interface ProductParams {
   category_id?: string;
   is_active?: boolean;
+  page?: number;
+  size?: number;
+  search?: string;
 }
 
 export const getActiveProducts = async (params?: ProductParams) => {

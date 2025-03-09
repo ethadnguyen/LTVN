@@ -1,8 +1,17 @@
-"use client"
+'use client';
 
-import { Box, LayoutDashboard, Package, Percent, ShoppingCart, Tags, Users } from "lucide-react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import {
+  Box,
+  LayoutDashboard,
+  Package,
+  Percent,
+  ShoppingCart,
+  Tags,
+  Users,
+  Factory,
+} from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 import {
   Sidebar,
@@ -11,49 +20,54 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from '@/components/ui/sidebar';
 
 const menuItems = [
   {
-    title: "Tổng quan",
-    href: "/",
+    title: 'Tổng quan',
+    href: '/',
     icon: LayoutDashboard,
   },
   {
-    title: "Sản phẩm",
-    href: "/products",
+    title: 'Sản phẩm',
+    href: '/products',
     icon: Package,
   },
   {
-    title: "Danh mục",
-    href: "/categories",
+    title: 'Hãng sản xuất',
+    href: '/brand',
+    icon: Factory,
+  },
+  {
+    title: 'Danh mục',
+    href: '/categories',
     icon: Tags,
   },
   {
-    title: "Đơn hàng",
-    href: "/orders",
+    title: 'Đơn hàng',
+    href: '/orders',
     icon: ShoppingCart,
   },
   {
-    title: "Tài khoản",
-    href: "/accounts",
+    title: 'Tài khoản',
+    href: '/accounts',
     icon: Users,
   },
   {
-    title: "Khuyến mãi",
-    href: "/promotions",
+    title: 'Khuyến mãi',
+    href: '/promotions',
     icon: Percent,
   },
-]
+];
 
 export function AdminSidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-6 py-3">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <Box className="h-6 w-6" />
+      <SidebarHeader className='border-b px-6 py-3'>
+        <Link href='/' className='flex items-center gap-2 font-semibold'>
+          <Box className='h-6 w-6' />
           <span>Quản trị</span>
         </Link>
       </SidebarHeader>
@@ -61,9 +75,13 @@ export function AdminSidebar() {
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton asChild isActive={pathname === item.href} className="flex items-center gap-2">
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === item.href}
+                className='flex items-center gap-2'
+              >
                 <Link href={item.href}>
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className='h-4 w-4' />
                   <span>{item.title}</span>
                 </Link>
               </SidebarMenuButton>
@@ -72,6 +90,5 @@ export function AdminSidebar() {
         </SidebarMenu>
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }
-

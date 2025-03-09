@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CategoryRes } from '../../../categories/controllers/types/category.res';
 import { ProductType } from '../../enums/product-type.enum';
+import { BrandRes } from 'src/app/modules/brand/controllers/types/brand.res';
 
 export class ProductRes {
   @ApiProperty()
@@ -11,6 +12,9 @@ export class ProductRes {
 
   @ApiProperty()
   description: string;
+
+  @ApiProperty()
+  slug: string;
 
   @ApiProperty()
   price: number;
@@ -26,6 +30,9 @@ export class ProductRes {
 
   @ApiProperty({ type: [CategoryRes] })
   categories: CategoryRes[];
+
+  @ApiProperty({ type: BrandRes })
+  brand: BrandRes;
 
   @ApiProperty({ enum: ProductType })
   type: ProductType;

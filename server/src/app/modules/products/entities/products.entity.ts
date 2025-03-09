@@ -7,10 +7,13 @@ import {
   ManyToMany,
   JoinTable,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Category } from '../../categories/entities/categories.entity';
 import { ProductType } from '../enums/product-type.enum';
-import { Review } from '../../reviews/entities/review.entity';
+import { Brand } from '../../brand/entities/brand.entity';
+
 @Entity('products')
 export class Product {
   @PrimaryGeneratedColumn()
@@ -39,6 +42,9 @@ export class Product {
   @Column('simple-array', { nullable: true })
   images: string[];
 
+  @Column({ nullable: true })
+  slug: string;
+
   @Column({
     type: 'jsonb',
     nullable: true,
@@ -62,6 +68,13 @@ export class Product {
     },
   })
   categories: Category[];
+
+  @ManyToOne(() => Brand)
+  @JoinColumn({ name: 'brand_id' })
+  brand: Brand;
+
+  @Column({ nullable: true })
+  brand_id: number;
 
   @Column({
     type: 'enum',

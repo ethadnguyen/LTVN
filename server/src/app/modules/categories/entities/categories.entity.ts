@@ -26,6 +26,9 @@ export class Category {
   })
   description: string;
 
+  @Column({ nullable: true })
+  slug: string;
+
   @TreeChildren()
   children: Category[];
 

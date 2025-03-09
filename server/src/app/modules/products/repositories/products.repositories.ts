@@ -17,7 +17,7 @@ export class ProductRepository {
     const savedProduct = await this.productRepo.save(product);
     return await this.productRepo.findOne({
       where: { id: savedProduct.id },
-      relations: ['categories'],
+      relations: ['categories', 'brand'],
     });
   }
 
@@ -25,6 +25,7 @@ export class ProductRepository {
     return await this.productRepo
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.categories', 'categories')
+      .leftJoinAndSelect('product.brand', 'brand')
       .where('product.id = :id', { id })
       .getOne();
   }
@@ -33,6 +34,7 @@ export class ProductRepository {
     const queryBuilder = this.productRepo.createQueryBuilder('product');
 
     queryBuilder.leftJoinAndSelect('product.categories', 'categories');
+    queryBuilder.leftJoinAndSelect('product.brand', 'brand');
 
     if (keywords.length > 0) {
       queryBuilder.andWhere('product.name ILIKE :keywords', {
@@ -46,7 +48,7 @@ export class ProductRepository {
   async findByIds(ids: number[]): Promise<Product[]> {
     return await this.productRepo.find({
       where: { id: In(ids) },
-      relations: ['categories'],
+      relations: ['categories', 'brand'],
     });
   }
 
@@ -61,6 +63,7 @@ export class ProductRepository {
     const queryBuilder = this.productRepo.createQueryBuilder('product');
 
     queryBuilder.leftJoinAndSelect('product.categories', 'categories');
+    queryBuilder.leftJoinAndSelect('product.brand', 'brand');
 
     if (category_id) {
       queryBuilder.andWhere('categories.id = :category_id', { category_id });

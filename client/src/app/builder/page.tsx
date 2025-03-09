@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   DndContext,
   type DragEndEvent,
@@ -16,74 +16,72 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ProductCard } from '@/components/builder/product-card';
 import { BuilderSlot } from '@/components/builder/builder-slot';
-import type {
-  Product,
-  ProductCategory,
-  BuilderItem,
-} from '@/services/types/response/product_types/product.res';
-import { checkCompatibility } from '@/lib/compatibility';
 import { formatCurrency } from '@/lib/utils';
+import { compatibilityService } from '@/services/modules/compatibility.service';
+import { getActiveProducts } from '@/services/modules/product.service';
+import { getActiveCategories } from '@/services/modules/category.service';
+import { toast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import {
+  ProductRes,
+  ProductType,
+} from '@/services/types/response/product_types/product.res';
+import { CategoryRes } from '@/services/types/response/category_types/category.res';
+import PaginationWrapper from '@/components/custom/pagination-wrapper';
 
-// Example products - In a real app, this would come from your database
-const products: Product[] = [
-  {
-    id: '1',
-    name: 'AMD Ryzen 9 7950X',
-    price: 699,
-    category: 'CPU',
-    image: '/placeholder.svg',
-    specs: {
-      socket: 'AM5',
-      cores: 16,
-      threads: 32,
-      tdp: 170,
-    },
-  },
-  {
-    id: '2',
-    name: 'ASUS ROG STRIX X670E-E GAMING WIFI',
-    price: 499,
-    category: 'MOTHERBOARD',
-    image: '/placeholder.svg',
-    specs: {
-      socket: 'AM5',
-      memory: {
-        type: 'DDR5',
-        maxSpeed: '6400MHz',
-      },
-    },
-  },
-  // Add more products...
-];
+const ITEMS_PER_PAGE = 9;
 
-const categories: ProductCategory[] = [
-  'CPU',
-  'MOTHERBOARD',
-  'RAM',
-  'GPU',
-  'STORAGE',
-  'PSU',
-  'CASE',
-  'COOLING',
-];
+interface BuilderItem {
+  product: ProductRes;
+  quantity: number;
+}
 
 export default function BuilderPage() {
-  const [selectedCategory, setSelectedCategory] =
-    useState<ProductCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeProduct, setActiveProduct] = useState<Product | null>(null);
+  const [activeProduct, setActiveProduct] = useState<ProductRes | null>(null);
+  const [products, setProducts] = useState<ProductRes[]>([]);
+  const [categories, setCategories] = useState<CategoryRes[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
   const [builderItems, setBuilderItems] = useState<
-    Record<ProductCategory, BuilderItem | undefined>
+    Record<ProductType, BuilderItem | undefined>
   >({
-    CPU: undefined,
-    MOTHERBOARD: undefined,
-    RAM: undefined,
-    GPU: undefined,
-    STORAGE: undefined,
-    PSU: undefined,
-    CASE: undefined,
-    COOLING: undefined,
+    [ProductType.CPU]: undefined,
+    [ProductType.MAINBOARD]: undefined,
+    [ProductType.RAM]: undefined,
+    [ProductType.GPU]: undefined,
+    [ProductType.STORAGE]: undefined,
+    [ProductType.POWER_SUPPLY]: undefined,
+    [ProductType.CASE]: undefined,
+    [ProductType.COOLING]: undefined,
   });
+  const [compatibility, setCompatibility] = useState<{
+    isCompatible: boolean;
+    messages: string[];
+  } | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await getActiveCategories({ is_active: true });
+        setCategories(response.categories);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Lỗi',
+          description:
+            'Không thể tải danh sách danh mục. Vui lòng thử lại sau.',
+        });
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   // Configure sensors for better drag and drop experience
   const sensors = useSensors(
@@ -100,23 +98,85 @@ export default function BuilderPage() {
     })
   );
 
-  const compatibility = checkCompatibility(
-    Object.values(builderItems).filter(Boolean) as BuilderItem[]
-  );
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setIsLoading(true);
+      try {
+        const response = await getActiveProducts({
+          page: currentPage,
+          size: ITEMS_PER_PAGE,
+          category_id: selectedCategory?.toString(),
+          search: searchTerm || undefined,
+        });
 
-  const filteredProducts = products.filter((product) => {
-    const matchesCategory =
-      !selectedCategory || product.category === selectedCategory;
-    const matchesSearch = product.name
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+        setProducts(response.data.products);
+        setTotalPages(Math.ceil(response.total / ITEMS_PER_PAGE));
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Lỗi',
+          description:
+            'Không thể tải danh sách sản phẩm. Vui lòng thử lại sau.',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const totalPrice = Object.values(builderItems)
-    .filter(Boolean)
-    .reduce((total, item) => total + item!.product.price * item!.quantity, 0);
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    } else {
+      fetchProducts();
+    }
+  }, [selectedCategory, searchTerm, currentPage]);
 
+  // Kiểm tra tương thích khi thay đổi builderItems
+  useEffect(() => {
+    const checkBuildCompatibility = async () => {
+      const selectedItems = Object.values(builderItems).filter(
+        (item) => item !== undefined
+      );
+      if (selectedItems.length < 2) {
+        setCompatibility(null);
+        return;
+      }
+
+      setIsChecking(true);
+      try {
+        const request = {
+          products: selectedItems.map((item) => ({
+            product_id: String(item!.product.id),
+            product_type: item!.product.type,
+          })),
+        };
+
+        const result = await compatibilityService.checkCompatibility(request);
+        setCompatibility(result);
+
+        if (!result.isCompatible) {
+          toast({
+            variant: 'destructive',
+            title: 'Cảnh báo tương thích',
+            description: result.messages.join('\n'),
+          });
+        }
+      } catch (error) {
+        console.error('Error checking compatibility:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Lỗi',
+          description: 'Không thể kiểm tra tương thích. Vui lòng thử lại sau.',
+        });
+      } finally {
+        setIsChecking(false);
+      }
+    };
+
+    checkBuildCompatibility();
+  }, [builderItems]);
+
+  // Handlers
   function handleDragStart(event: DragStartEvent) {
     if (event.active.data.current) {
       setActiveProduct(event.active.data.current.product);
@@ -128,10 +188,10 @@ export default function BuilderPage() {
     const { active, over } = event;
 
     if (over && active.data.current) {
-      const product = active.data.current.product as Product;
-      const category = over.id as ProductCategory;
+      const product = active.data.current.product as ProductRes;
+      const category = over.id as ProductType;
 
-      if (category === product.category) {
+      if (category === product.type) {
         setBuilderItems((prev) => ({
           ...prev,
           [category]: {
@@ -143,7 +203,7 @@ export default function BuilderPage() {
     }
   }
 
-  function handleQuantityChange(category: ProductCategory, quantity: number) {
+  function handleQuantityChange(category: ProductType, quantity: number) {
     setBuilderItems((prev) => ({
       ...prev,
       [category]: prev[category]
@@ -155,7 +215,7 @@ export default function BuilderPage() {
     }));
   }
 
-  function handleRemoveItem(category: ProductCategory) {
+  function handleRemoveItem(category: ProductType) {
     setBuilderItems((prev) => ({
       ...prev,
       [category]: undefined,
@@ -166,6 +226,10 @@ export default function BuilderPage() {
     // In a real app, this would save to your backend
     console.log('Saving configuration:', builderItems);
   }
+
+  const totalPrice = Object.values(builderItems)
+    .filter(Boolean)
+    .reduce((total, item) => total + item!.product.price * item!.quantity, 0);
 
   return (
     <DndContext
@@ -192,14 +256,14 @@ export default function BuilderPage() {
               </Button>
               {categories.map((category) => (
                 <Button
-                  key={category}
+                  key={category.id}
                   variant={
-                    selectedCategory === category ? 'default' : 'outline'
+                    selectedCategory === category.id ? 'default' : 'outline'
                   }
                   className='w-full justify-start'
-                  onClick={() => setSelectedCategory(category)}
+                  onClick={() => setSelectedCategory(category.id)}
                 >
-                  {category}
+                  {category.name}
                 </Button>
               ))}
             </div>
@@ -212,11 +276,30 @@ export default function BuilderPage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+
+            {isLoading ? (
+              <div className='flex justify-center items-center min-h-[400px]'>
+                <Loader2 className='w-8 h-8 animate-spin' />
+              </div>
+            ) : (
+              <>
+                <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+                  {products.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className='mt-4 flex justify-center'>
+                    <PaginationWrapper
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Builder */}
@@ -226,26 +309,50 @@ export default function BuilderPage() {
               <Button onClick={handleSaveConfig}>Save Config</Button>
             </div>
 
-            <Alert
-              variant={compatibility.isCompatible ? 'default' : 'destructive'}
-            >
-              <AlertDescription>
-                {compatibility.messages.map((message, i) => (
-                  <div key={i}>{message}</div>
-                ))}
-              </AlertDescription>
-            </Alert>
+            {/* Hiển thị kết quả kiểm tra tương thích */}
+            {compatibility && (
+              <Alert
+                className={
+                  compatibility.isCompatible ? 'bg-green-50' : 'bg-red-50'
+                }
+              >
+                <AlertDescription>
+                  <div className='flex flex-col gap-2'>
+                    <div
+                      className={`font-semibold ${
+                        compatibility.isCompatible
+                          ? 'text-green-600'
+                          : 'text-red-600'
+                      }`}
+                    >
+                      {compatibility.isCompatible
+                        ? 'Các linh kiện tương thích với nhau'
+                        : 'Phát hiện vấn đề về tương thích'}
+                    </div>
+                    {!compatibility.isCompatible && (
+                      <ul className='list-disc list-inside space-y-1'>
+                        {compatibility.messages.map((message, index) => (
+                          <li key={index} className='text-sm text-red-600'>
+                            {message}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className='space-y-4'>
-              {categories.map((category) => (
+              {Object.values(ProductType).map((type) => (
                 <BuilderSlot
-                  key={category}
-                  category={category}
-                  item={builderItems[category]}
+                  key={type}
+                  category={type}
+                  item={builderItems[type]}
                   onQuantityChange={(quantity) =>
-                    handleQuantityChange(category, quantity)
+                    handleQuantityChange(type, quantity)
                   }
-                  onRemove={() => handleRemoveItem(category)}
+                  onRemove={() => handleRemoveItem(type)}
                 />
               ))}
             </div>

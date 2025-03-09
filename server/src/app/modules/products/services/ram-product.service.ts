@@ -44,6 +44,7 @@ export class RamService {
       images: input.images,
       is_active: input.is_active,
       type: ProductType.RAM,
+      brand_id: input.brand_id,
     });
 
     const ram = new RAM();
@@ -81,6 +82,7 @@ export class RamService {
       is_active: input.is_active,
       images: input.images,
       specifications: input.specifications,
+      brand_id: input.brand_id,
     });
 
     const ramProperties = {

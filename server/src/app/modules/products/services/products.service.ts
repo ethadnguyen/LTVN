@@ -10,14 +10,15 @@ import { CreateProductInput } from './types/create-product.input';
 import { Product } from '../entities/products.entity';
 import { UpdateProductInput } from './types/update-product.input';
 import { CategoryRepository } from '../../categories/repositories/categories.repositories';
-import { ProductType } from '../enums/product-type.enum';
-import { DataSource } from 'typeorm';
+import { generateSlug } from 'src/common/helpers';
+import { BrandRepository } from '../../brand/repositories/brand.repository';
 
 @Injectable()
 export class ProductService {
   constructor(
     private readonly productRepo: ProductRepository,
     private readonly categoryRepo: CategoryRepository,
+    private readonly brandRepo: BrandRepository,
   ) {}
 
   async getAllProducts(queryParams: GetAllProductInput) {
@@ -68,6 +69,11 @@ export class ProductService {
       product.categories = categories;
     }
 
+    const brand = await this.brandRepo.findById(input.brand_id);
+    if (brand) {
+      product.brand = brand;
+    }
+
     Object.assign(product, {
       name: input.name,
       description: input.description,
@@ -75,6 +81,7 @@ export class ProductService {
       stock: input.stock,
       images: input.images,
       is_active: input.is_active,
+      slug: generateSlug(input.name),
       type: input.type,
     });
 
@@ -87,6 +94,8 @@ export class ProductService {
       throw new NotFoundException(`Product with ID ${input.id} not found`);
     }
 
+    const updateData: any = {};
+
     if (input.category_id) {
       const categories = await this.categoryRepo.findByIds(
         Array.isArray(input.category_id)
@@ -98,15 +107,33 @@ export class ProductService {
       }
     }
 
-    Object.assign(productDB, {
-      name: input.name,
-      description: input.description,
-      price: input.price,
-      stock: input.stock,
-      images: input.images,
-      type: input.type,
-      is_active: input.is_active,
-    });
+    if (input.brand_id !== undefined) {
+      if (input.brand_id === null) {
+        updateData.brand = null;
+        updateData.brand_id = null;
+      } else {
+        const brand = await this.brandRepo.findById(input.brand_id);
+        if (brand) {
+          updateData.brand = brand;
+          updateData.brand_id = brand.id;
+        }
+      }
+    }
+
+    if (input.name !== undefined) {
+      updateData.name = input.name;
+      updateData.slug = generateSlug(input.name);
+    }
+
+    if (input.description !== undefined)
+      updateData.description = input.description;
+    if (input.price !== undefined) updateData.price = input.price;
+    if (input.stock !== undefined) updateData.stock = input.stock;
+    if (input.images !== undefined) updateData.images = input.images;
+    if (input.is_active !== undefined) updateData.is_active = input.is_active;
+    if (input.type !== undefined) updateData.type = input.type;
+
+    Object.assign(productDB, updateData);
 
     return await this.productRepo.update(productDB);
   }

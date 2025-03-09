@@ -28,6 +28,7 @@ export const baseProductSchema = z.object({
   type: z.nativeEnum(ProductType),
   specifications: z.record(z.string(), z.string()),
   images: z.array(z.string()).optional(),
+  brand_id: z.number().nullable().optional(),
 });
 
 // Schema riêng cho CPU

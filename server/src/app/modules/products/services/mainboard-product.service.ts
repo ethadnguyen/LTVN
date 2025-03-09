@@ -45,6 +45,7 @@ export class MainboardService {
       category_id: input.category_id,
       images: input.images,
       is_active: input.is_active,
+      brand_id: input.brand_id,
     });
 
     const mainboard = new Mainboard();

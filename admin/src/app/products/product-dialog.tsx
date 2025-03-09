@@ -81,6 +81,7 @@ import {
   createRam,
   updateRam,
   deleteProduct,
+  updateProduct,
 } from '@/services/modules/product.service';
 import { RAMForm } from './forms/ram-form';
 import { GPUForm } from './forms/gpu-form';
@@ -126,6 +127,7 @@ export default function ProductDialog({
       type: ProductType.CPU,
       specifications: {},
       images: [],
+      brand_id: null,
     },
   });
 
@@ -281,6 +283,7 @@ export default function ProductDialog({
       type: ProductType.CPU,
       specifications: {},
       images: [],
+      brand_id: null,
     });
     cpuForm.reset({
       socket_type: SocketType.LGA1700,
@@ -447,6 +450,7 @@ export default function ProductDialog({
             type: product.type as ProductType,
             specifications: product.specifications || {},
             images: product.images || [],
+            brand_id: product.brand_id || null,
           });
 
           setSpecs(product.specifications || {});
@@ -651,6 +655,7 @@ export default function ProductDialog({
         ...baseData,
         ...specificData,
         category_id: baseData.category_id.map((id) => Number(id)),
+        brand_id: baseData.brand_id,
       };
 
       // Xử lý cập nhật sản phẩm
@@ -660,6 +665,24 @@ export default function ProductDialog({
             id: Number(product.id),
             ...submitData,
           };
+
+          const baseProductResponse = await updateProduct({
+            id: Number(product.id),
+            name: submitData.name,
+            description: submitData.description,
+            price: submitData.price,
+            stock: submitData.stock,
+            images: submitData.images,
+            is_active: submitData.is_active,
+            type: submitData.type,
+            category_id: submitData.category_id,
+            brand_id: submitData.brand_id,
+            specifications: submitData.specifications,
+          });
+
+          if (baseProductResponse?.status !== 200) {
+            throw new Error('Cập nhật thông tin cơ bản thất bại');
+          }
 
           let response;
           switch (product.type) {
@@ -695,16 +718,17 @@ export default function ProductDialog({
               description: `Cập nhật sản phẩm loại ${product.type} thành công`,
             });
             onRefresh?.();
-            handleClose();
+            onClose();
+          } else {
+            throw new Error('Cập nhật thông tin chi tiết thất bại');
           }
         } catch (error: any) {
+          console.error('Lỗi khi cập nhật sản phẩm:', error);
           toast({
-            title: 'Lỗi cập nhật',
-            description:
-              error.response?.data?.message || 'Lỗi cập nhật sản phẩm',
+            title: 'Lỗi',
+            description: 'Có lỗi xảy ra khi cập nhật sản phẩm',
             variant: 'destructive',
           });
-          console.error('Update error:', error);
         }
       }
       // Xử lý tạo mới sản phẩm
@@ -745,7 +769,7 @@ export default function ProductDialog({
               description: `Thêm sản phẩm loại ${baseData.type} thành công`,
             });
             onRefresh?.();
-            handleClose();
+            onClose();
           }
         } catch (error: any) {
           toast({
