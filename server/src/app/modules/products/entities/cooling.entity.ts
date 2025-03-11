@@ -2,6 +2,7 @@ import { Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from 'typeorm';
 import { Product } from './products.entity';
 import { CoolingType } from '../enums/cooling-type.enum';
 import { SocketType } from '../enums/socket-type.enum';
+import { Transform } from 'class-transformer';
 
 @Entity('cooling')
 export class Cooling {
@@ -43,6 +44,10 @@ export class Cooling {
     type: 'decimal',
     precision: 5,
     scale: 2,
+    transformer: {
+      to: (value: number) => value,
+      from: (value: string) => parseFloat(value),
+    },
   })
   noise_level: number;
 

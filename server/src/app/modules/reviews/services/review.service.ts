@@ -42,21 +42,59 @@ export class ReviewService {
     review.comment = input.comment;
     review.user = await this.userRepository.findById(user_id);
     review.product = await this.productRepository.findById(input.product_id);
-    return this.reviewRepository.create(review);
+
+    // Lưu review
+    const savedReview = await this.reviewRepository.create(review);
+
+    // Cập nhật rating trung bình của sản phẩm
+    await this.updateProductRating(input.product_id);
+
+    return savedReview;
   }
 
   async updateReview(input: UpdateReviewInput) {
     const review = await this.reviewRepository.findById(input.id);
     review.rating = input.rating;
     review.comment = input.comment;
-    return this.reviewRepository.update(input.id, review);
+
+    // Lưu review đã cập nhật
+    const updatedReview = await this.reviewRepository.update(input.id, review);
+
+    // Cập nhật rating trung bình của sản phẩm
+    const productId = (await this.reviewRepository.findById(input.id)).product
+      .id;
+    await this.updateProductRating(productId);
+
+    return updatedReview;
   }
 
   async deleteReview(id: number) {
-    return this.reviewRepository.delete(id);
+    // Lấy thông tin sản phẩm trước khi xóa review
+    const review = await this.reviewRepository.findById(id);
+    const productId = review.product.id;
+
+    // Xóa review
+    await this.reviewRepository.delete(id);
+
+    // Cập nhật rating trung bình của sản phẩm
+    await this.updateProductRating(productId);
+
+    return { success: true };
   }
 
   async getReviewById(id: number) {
     return this.reviewRepository.findById(id);
+  }
+
+  private async updateProductRating(productId: number): Promise<void> {
+    const averageRating =
+      await this.reviewRepository.calculateAverageRating(productId);
+
+    const product = await this.productRepository.findById(productId);
+
+    product.rating = averageRating;
+
+    // Lưu sản phẩm đã cập nhật
+    await this.productRepository.update(product);
   }
 }

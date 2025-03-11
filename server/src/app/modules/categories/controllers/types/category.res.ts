@@ -14,6 +14,8 @@ export class CategoryRes {
   description: string;
 
   @ApiProperty()
+  icon: string;
+  @ApiProperty()
   is_active: boolean;
 
   @ApiProperty()

@@ -6,7 +6,6 @@ import {
   UpdateDateColumn,
   ManyToMany,
   JoinTable,
-  OneToMany,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
@@ -82,6 +81,24 @@ export class Product {
     nullable: true,
   })
   type: ProductType;
+
+  @Column({
+    type: 'boolean',
+    default: false,
+  })
+  is_sale: boolean;
+
+  @Column({
+    type: 'int',
+    default: 0,
+  })
+  sale_price: number;
+
+  @Column({
+    type: 'float',
+    default: 0,
+  })
+  rating: number;
 
   @CreateDateColumn({
     type: 'timestamp',

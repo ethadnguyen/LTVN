@@ -9,6 +9,7 @@ const protectedRoutes = [
   '/profile',
   '/orders',
   '/saved-configs',
+  '/pc-builder/save', // Thêm route lưu cấu hình PC
 ];
 
 // Các route không cho phép truy cập khi đã đăng nhập
@@ -21,7 +22,7 @@ export async function middleware(request: NextRequest) {
   // Kiểm tra các route cần authentication
   if (protectedRoutes.some((route) => path.startsWith(route))) {
     if (!token) {
-      // Chuyển hướng đến trang đăng nhập nếu chưa đăng nhập
+      // Lưu URL hiện tại để redirect sau khi đăng nhập
       const loginUrl = new URL('/auth/sign-in', request.url);
       loginUrl.searchParams.set('callbackUrl', path);
       return NextResponse.redirect(loginUrl);
@@ -31,7 +32,12 @@ export async function middleware(request: NextRequest) {
   // Kiểm tra các route auth (login, register)
   if (authRoutes.includes(path)) {
     if (token) {
-      // Chuyển hướng về trang chủ nếu đã đăng nhập
+      // Nếu có callback URL, chuyển hướng đến đó
+      const callbackUrl = request.nextUrl.searchParams.get('callbackUrl');
+      if (callbackUrl) {
+        return NextResponse.redirect(new URL(callbackUrl, request.url));
+      }
+      // Nếu không, chuyển hướng về trang chủ
       return NextResponse.redirect(new URL('/', request.url));
     }
   }

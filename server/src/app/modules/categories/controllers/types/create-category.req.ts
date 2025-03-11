@@ -18,6 +18,11 @@ export class CreateCategoryReq {
   @IsNotEmpty()
   description: string;
 
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  icon?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsNumber()

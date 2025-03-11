@@ -62,4 +62,15 @@ export class UpdateProductReq {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  is_sale?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sale_price?: number;
 }

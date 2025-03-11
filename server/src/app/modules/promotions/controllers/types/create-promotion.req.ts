@@ -33,14 +33,14 @@ export class CreatePromotionReq {
   discount_value: number;
 
   @ApiProperty()
-  @IsDate()
+  @IsString()
   @IsNotEmpty()
-  start_date: Date;
+  start_date: string;
 
   @ApiProperty()
-  @IsDate()
+  @IsString()
   @IsNotEmpty()
-  end_date: Date;
+  end_date: string;
 
   @ApiProperty()
   @IsBoolean()

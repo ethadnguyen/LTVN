@@ -92,4 +92,19 @@ export class BrandService {
   async remove(id: number) {
     await this.brandRepository.delete(id);
   }
+
+  async getActiveBrands() {
+    const [brands, total] = await this.brandRepository.findAll(
+      {
+        skip: 0,
+        take: 1000, // Lấy tất cả, giới hạn 1000 để tránh quá tải
+      },
+      true, // Chỉ lấy các brand đang active
+    );
+
+    return {
+      total,
+      brands,
+    };
+  }
 }

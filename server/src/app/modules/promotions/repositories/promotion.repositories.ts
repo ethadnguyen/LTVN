@@ -60,8 +60,6 @@ export class PromotionRepository {
     }
 
     queryBuilder
-      .select('promotion.id', 'id')
-      .distinct(true)
       .orderBy('promotion.created_at', 'DESC')
       .skip(paginationOptions.skip)
       .take(paginationOptions.take);
@@ -86,8 +84,16 @@ export class PromotionRepository {
   }
 
   async update(id: number, promotion: Partial<Promotion>): Promise<Promotion> {
-    await this.promotionRepository.update(id, promotion);
+    const updateData = { ...promotion };
+    delete updateData.products;
+    delete updateData.categories;
+
+    await this.promotionRepository.update(id, updateData);
     return await this.findById(id);
+  }
+
+  async save(promotion: Promotion): Promise<Promotion> {
+    return await this.promotionRepository.save(promotion);
   }
 
   async delete(id: number): Promise<void> {

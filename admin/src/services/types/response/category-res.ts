@@ -4,6 +4,7 @@ export interface CategoryRes {
   id: number;
   name: string;
   description: string;
+  icon?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;

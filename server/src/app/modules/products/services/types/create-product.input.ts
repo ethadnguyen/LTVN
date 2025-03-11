@@ -11,4 +11,6 @@ export interface CreateProductInput {
   specifications?: object;
   type: ProductType;
   is_active?: boolean;
+  is_sale?: boolean;
+  sale_price?: number;
 }

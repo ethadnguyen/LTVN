@@ -21,6 +21,9 @@ export class Category {
   })
   name: string;
 
+  @Column({ nullable: true })
+  icon: string;
+
   @Column({
     type: 'text',
   })
@@ -34,6 +37,9 @@ export class Category {
 
   @TreeParent()
   parent: Category;
+
+  @Column({ default: 0 })
+  products_count: number;
 
   @Column({
     type: 'boolean',

@@ -21,6 +21,11 @@ export class UpdateOrderReq {
   address_id?: number;
 
   @ApiProperty()
+  @IsNumber()
+  @IsOptional()
+  promotion_id?: number;
+
+  @ApiProperty()
   @IsObject()
   @IsOptional()
   new_address?: CreateAddressReq;

@@ -32,6 +32,7 @@ export function CategorySelect({
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -40,10 +41,11 @@ export function CategorySelect({
   }, []);
 
   useEffect(() => {
-    if (mounted && refreshCategories) {
+    if (mounted && refreshCategories && !categoriesLoaded) {
       refreshCategories();
+      setCategoriesLoaded(true);
     }
-  }, [mounted, refreshCategories]);
+  }, [mounted, refreshCategories, categoriesLoaded]);
 
   const availableCategories = React.useMemo(() => {
     if (!categories || categories.length === 0) return [];
@@ -63,7 +65,13 @@ export function CategorySelect({
   }, [categories, excludeId]);
 
   const selectedCategory = React.useMemo(() => {
-    if (!categories || categories.length === 0 || value === null) return null;
+    if (
+      !categories ||
+      categories.length === 0 ||
+      value === null ||
+      value === undefined
+    )
+      return null;
     return categories.find((cat) => Number(cat.id) === Number(value)) || null;
   }, [categories, value]);
 
@@ -119,7 +127,7 @@ export function CategorySelect({
   };
 
   const handleShowSuggestions = () => {
-    if (refreshCategories) {
+    if (refreshCategories && (!categories || categories.length === 0)) {
       refreshCategories();
     }
     setShowSuggestions(true);

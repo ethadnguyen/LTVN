@@ -18,6 +18,11 @@ export class UpdateCategoryReq {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsString()
+  icon?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsNumber()
   parent_id?: number;
 

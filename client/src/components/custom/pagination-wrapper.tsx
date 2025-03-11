@@ -2,134 +2,110 @@
 
 import type React from 'react';
 
-import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-interface PaginationProps extends React.HTMLAttributes<HTMLElement> {
+interface PaginationWrapperProps {
   currentPage: number;
-  totalPages: number;
+  totalItems: number;
+  pageSize: number;
   onPageChange: (page: number) => void;
-  siblingsCount?: number;
-  className?: string;
 }
 
-export function Pagination({
+export function PaginationWrapper({
   currentPage,
-  totalPages,
+  totalItems,
+  pageSize,
   onPageChange,
-  siblingsCount = 1,
-  className,
-  ...props
-}: PaginationProps) {
-  // Tạo mảng các trang cần hiển thị
-  const generatePagination = () => {
-    // Luôn hiển thị trang đầu và trang cuối
-    const firstPage = 1;
-    const lastPage = totalPages;
+}: PaginationWrapperProps) {
+  const totalPages = Math.ceil(totalItems / pageSize);
 
-    // Tính toán phạm vi trang hiển thị xung quanh trang hiện tại
-    const leftSiblingIndex = Math.max(currentPage - siblingsCount, firstPage);
-    const rightSiblingIndex = Math.min(currentPage + siblingsCount, lastPage);
+  if (totalPages <= 1) return null;
 
-    // Xác định xem có cần hiển thị dấu "..." bên trái và bên phải không
-    const shouldShowLeftDots = leftSiblingIndex > firstPage + 1;
-    const shouldShowRightDots = rightSiblingIndex < lastPage - 1;
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
 
-    // Tạo mảng các trang cần hiển thị
-    const pages: (number | string)[] = [];
+  // Hiển thị tối đa 5 trang, ưu tiên trang hiện tại ở giữa
+  const getVisiblePages = () => {
+    const maxVisiblePages = 5;
+    if (totalPages <= maxVisiblePages) return pages;
 
-    // Luôn thêm trang đầu tiên
-    pages.push(firstPage);
+    const halfVisible = Math.floor(maxVisiblePages / 2);
+    let start = currentPage - halfVisible;
+    let end = currentPage + halfVisible;
 
-    // Thêm dấu "..." bên trái nếu cần
-    if (shouldShowLeftDots) {
-      pages.push('left-dots');
+    if (start < 1) {
+      start = 1;
+      end = maxVisiblePages;
     }
 
-    // Thêm các trang xung quanh trang hiện tại
-    for (let i = leftSiblingIndex; i <= rightSiblingIndex; i++) {
-      if (i !== firstPage && i !== lastPage) {
-        pages.push(i);
-      }
+    if (end > totalPages) {
+      end = totalPages;
+      start = totalPages - maxVisiblePages + 1;
     }
 
-    // Thêm dấu "..." bên phải nếu cần
-    if (shouldShowRightDots) {
-      pages.push('right-dots');
-    }
-
-    // Luôn thêm trang cuối cùng nếu có nhiều hơn 1 trang
-    if (lastPage > firstPage) {
-      pages.push(lastPage);
-    }
-
-    return pages;
+    return pages.slice(start - 1, end);
   };
 
-  const pages = generatePagination();
+  const visiblePages = getVisiblePages();
 
   return (
-    <nav
-      aria-label='Pagination'
-      className={cn('flex justify-center', className)}
-      {...props}
-    >
-      <ul className='flex items-center gap-1'>
-        <li>
+    <div className='flex items-center justify-center gap-2'>
+      <Button
+        variant='outline'
+        size='icon'
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+      >
+        <ChevronLeft className='h-4 w-4' />
+      </Button>
+
+      {visiblePages[0] > 1 && (
+        <>
           <Button
-            variant='outline'
+            variant={currentPage === 1 ? 'default' : 'outline'}
             size='icon'
-            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            aria-label='Trang trước'
+            onClick={() => onPageChange(1)}
           >
-            <ChevronLeft className='h-4 w-4' />
+            1
           </Button>
-        </li>
+          {visiblePages[0] > 2 && <span className='px-2'>...</span>}
+        </>
+      )}
 
-        {pages.map((page, index) => {
-          if (page === 'left-dots' || page === 'right-dots') {
-            return (
-              <li key={`dots-${index}`}>
-                <span className='flex h-9 w-9 items-center justify-center'>
-                  <MoreHorizontal className='h-4 w-4 text-muted-foreground' />
-                </span>
-              </li>
-            );
-          }
+      {visiblePages.map((page) => (
+        <Button
+          key={page}
+          variant={currentPage === page ? 'default' : 'outline'}
+          size='icon'
+          onClick={() => onPageChange(page)}
+        >
+          {page}
+        </Button>
+      ))}
 
-          const pageNumber = page as number;
-          const isCurrentPage = pageNumber === currentPage;
-
-          return (
-            <li key={pageNumber}>
-              <Button
-                variant={isCurrentPage ? 'default' : 'outline'}
-                size='icon'
-                onClick={() => onPageChange(pageNumber)}
-                aria-current={isCurrentPage ? 'page' : undefined}
-                aria-label={`Trang ${pageNumber}`}
-                className='h-9 w-9'
-              >
-                {pageNumber}
-              </Button>
-            </li>
-          );
-        })}
-
-        <li>
+      {visiblePages[visiblePages.length - 1] < totalPages && (
+        <>
+          {visiblePages[visiblePages.length - 1] < totalPages - 1 && (
+            <span className='px-2'>...</span>
+          )}
           <Button
-            variant='outline'
+            variant={currentPage === totalPages ? 'default' : 'outline'}
             size='icon'
-            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
-            aria-label='Trang sau'
+            onClick={() => onPageChange(totalPages)}
           >
-            <ChevronRight className='h-4 w-4' />
+            {totalPages}
           </Button>
-        </li>
-      </ul>
-    </nav>
+        </>
+      )}
+
+      <Button
+        variant='outline'
+        size='icon'
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+      >
+        <ChevronRight className='h-4 w-4' />
+      </Button>
+    </div>
   );
 }

@@ -66,18 +66,10 @@ export class Promotion {
   discount_value: number;
 
   @Column()
-  start_date: Date;
+  start_date: string;
 
   @Column()
-  end_date: Date;
-
-  @BeforeInsert()
-  @BeforeUpdate()
-  validateDates() {
-    if (this.end_date <= this.start_date) {
-      throw new Error('End date must be after start date');
-    }
-  }
+  end_date: string;
 
   @Column({
     type: 'boolean',

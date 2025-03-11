@@ -18,12 +18,13 @@ import { PromotionListRes } from './types/promotion-list.res';
 import { PromotionRes } from './types/promotion.res';
 import { Public } from 'src/common/decorators/public.decorator';
 
+@Public()
 @Controller('promotions')
 @ApiTags('Promotions')
 export class PromotionController {
   constructor(private readonly promotionService: PromotionService) {}
 
-  @Public()
+  // @Public()
   @Get('/all')
   @HttpCode(200)
   @ApiResponse({
@@ -35,7 +36,7 @@ export class PromotionController {
     return this.promotionService.findAllPromotions(query);
   }
 
-  @Public()
+  // @Public()
   @Get(':id')
   @HttpCode(200)
   @ApiResponse({
@@ -77,5 +78,29 @@ export class PromotionController {
   })
   async deletePromotion(@Param('id') id: number) {
     return this.promotionService.deletePromotion(id);
+  }
+
+  @Post(':id/apply')
+  @HttpCode(200)
+  @ApiResponse({
+    status: 200,
+    description: 'Áp dụng khuyến mãi và tăng số lần sử dụng',
+  })
+  async applyPromotion(
+    @Param('id') id: number,
+    @Body() body: { products: { productId: number; quantity: number }[] },
+  ) {
+    return this.promotionService.calculateDiscount(id, body.products, true);
+  }
+
+  @Post(':id/increment-usage')
+  @HttpCode(200)
+  @ApiResponse({
+    status: 200,
+    description: 'Tăng số lần sử dụng của khuyến mãi',
+    type: PromotionRes,
+  })
+  async incrementPromotionUsage(@Param('id') id: number) {
+    return this.promotionService.incrementUsedCount(id);
   }
 }

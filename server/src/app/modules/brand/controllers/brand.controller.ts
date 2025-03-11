@@ -52,6 +52,17 @@ export class BrandController {
     return this.brandService.getAllBrands(query);
   }
 
+  @Get('active')
+  @ApiOperation({ summary: 'Lấy danh sách hãng sản xuất đang active' })
+  @ApiResponse({
+    status: 200,
+    description: 'Danh sách hãng sản xuất đang active',
+    type: BrandListRes,
+  })
+  async getActiveBrands() {
+    return this.brandService.getActiveBrands();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Lấy thông tin hãng sản xuất theo ID' })
   @ApiResponse({

@@ -25,6 +25,13 @@ export class CategoryRepository {
     });
   }
 
+  async findBySlug(slug: string): Promise<Category> {
+    return await this.repo.findOne({
+      where: { slug },
+      relations: ['children', 'parent'],
+    });
+  }
+
   async findByIds(ids: number[]): Promise<Category[]> {
     return await this.repo.find({
       where: { id: In(ids) },

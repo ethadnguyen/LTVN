@@ -13,47 +13,65 @@ export const getActiveProducts = async (params?: ProductParams) => {
   return res.data;
 };
 
+export const getFeaturedProducts = async (params?: ProductParams) => {
+  const res = await get('/products/featured', params);
+  return res.data;
+};
+
+export const getProductsByCategorySlug = async (
+  slug: string,
+  params?: ProductParams
+) => {
+  const res = await get(`/products/category/${slug}`, params);
+  return res.data;
+};
+
 export const getProductById = async (id: number) => {
   const res = await get(`/products/${id}`);
   return res.data;
 };
 
+export const getProductBySlug = async (slug: string) => {
+  const res = await get(`/products/slug/${slug}`);
+  return res.data;
+};
+
 export const fetchCPUDetails = async (id: number) => {
-  const res = await get(`/products/cpu/${id}`);
+  const res = await get(`/cpu/${id}`);
   return res.data;
 };
 
 export const fetchGPUDetails = async (id: number) => {
-  const res = await get(`/products/gpu/${id}`);
+  const res = await get(`/gpu/${id}`);
   return res.data;
 };
 
 export const fetchMainboardDetails = async (id: number) => {
-  const res = await get(`/products/mainboard/${id}`);
+  const res = await get(`/mainboard/${id}`);
   return res.data;
 };
 
 export const fetchRamDetails = async (id: number) => {
-  const res = await get(`/products/ram/${id}`);
+  const res = await get(`/ram/${id}`);
   return res.data;
 };
 
 export const fetchStorageDetails = async (id: number) => {
-  const res = await get(`/products/storage/${id}`);
+  const res = await get(`/storage/${id}`);
   return res.data;
 };
 
 export const fetchPSUDetails = async (id: number) => {
-  const res = await get(`/products/psu/${id}`);
+  const res = await get(`/psu/${id}`);
   return res.data;
 };
 
 export const fetchCoolingDetails = async (id: number) => {
-  const res = await get(`/products/cooling/${id}`);
+  const res = await get(`/cooling/${id}`);
   return res.data;
 };
 
 export const fetchCaseDetails = async (id: number) => {
-  const res = await get(`/products/case/${id}`);
+  const res = await get(`/case/${id}`);
   return res.data;
 };

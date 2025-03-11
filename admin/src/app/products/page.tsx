@@ -80,86 +80,6 @@ export default function ProductsPage() {
 
   return (
     <>
-      <CustomBreadcrumb
-        items={[
-          {
-            label: 'Trang chủ',
-            href: '/',
-          },
-          {
-            label: 'Sản phẩm',
-            href: '/products',
-          },
-        ]}
-      />
-      <PageBody>
-        <div className='flex-1 space-y-4'>
-          <div className='flex items-center justify-between'>
-            <h2 className='text-3xl font-bold tracking-tight'>Sản phẩm</h2>
-            <div className='flex items-center space-x-2'>
-              <Button onClick={() => setOpenImportDialog(true)}>
-                Import từ file
-              </Button>
-              <Button onClick={() => handleDialog('add')}>
-                <Plus className='mr-2 h-4 w-4' />
-                Thêm sản phẩm
-              </Button>
-            </div>
-          </div>
-
-          <div className='grid gap-4'>
-            <form
-              className='flex w-full max-w-sm items-center space-x-2'
-              onSubmit={handleSearch}
-            >
-              <Input
-                placeholder='Tìm kiếm sản phẩm...'
-                value={pageData.searchKey}
-                onChange={(e) =>
-                  setPageData((prev) => ({
-                    ...prev,
-                    searchKey: e.target.value,
-                  }))
-                }
-              />
-              <Button type='submit'>
-                <Search className='h-4 w-4' />
-              </Button>
-            </form>
-
-            {pageData.isLoading ? (
-              <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
-                {[...Array(12)].map((_, i) => (
-                  <div
-                    key={i}
-                    className='h-[400px] animate-pulse bg-muted rounded-lg'
-                  />
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
-                  {pageData.data.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      onClick={() => handleDialog('update', product)}
-                    />
-                  ))}
-                </div>
-                <PaginationWrapper
-                  className='justify-end'
-                  totalPage={pageData.totalPages}
-                  onPageChange={(page) =>
-                    setPageData((prev) => ({ ...prev, currentPage: page }))
-                  }
-                />
-              </>
-            )}
-          </div>
-        </div>
-      </PageBody>
-
       <ProductDialog
         open={dialog.isOpen}
         onClose={() => handleDialog('close')}
@@ -173,6 +93,89 @@ export default function ProductsPage() {
         onClose={() => setOpenImportDialog(false)}
         onRefresh={fetchData}
       />
+
+      <PageBody>
+        <div className='flex flex-col gap-4 col-span-12 md:col-span-12'>
+          <CustomBreadcrumb
+            items={[
+              { label: 'Trang chủ', href: '/' },
+              { label: 'Quản lý sản phẩm' },
+            ]}
+          />
+          <h1 className='text-xl font-medium'>Quản lý sản phẩm</h1>
+
+          <div>
+            <div className='grid grid-cols-12'>
+              <div className='relative w-full col-span-6'>
+                <Input
+                  className='pl-9'
+                  placeholder='Tìm kiếm sản phẩm...'
+                  value={pageData.searchKey}
+                  onChange={(e) =>
+                    setPageData((prev) => ({
+                      ...prev,
+                      searchKey: e.target.value,
+                    }))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch(e);
+                    }
+                  }}
+                />
+                <Search className='absolute left-0 top-0 m-2.5 h-4 w-4 text-muted-foreground' />
+              </div>
+              <div className='col-span-6 flex justify-end gap-2'>
+                <Button onClick={() => setOpenImportDialog(true)}>
+                  Import từ file
+                </Button>
+                <Button onClick={() => handleDialog('add')}>
+                  <Plus className='mr-2 h-4 w-4' />
+                  Thêm sản phẩm
+                </Button>
+              </div>
+            </div>
+
+            <div className='mt-4'>
+              {pageData.isLoading ? (
+                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
+                  {[...Array(12)].map((_, i) => (
+                    <div
+                      key={i}
+                      className='h-[400px] animate-pulse bg-muted rounded-lg'
+                    />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
+                    {pageData.data.length === 0 ? (
+                      <div className='col-span-full flex items-center justify-center h-32 text-muted-foreground'>
+                        Không có sản phẩm nào
+                      </div>
+                    ) : (
+                      pageData.data.map((product) => (
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          onClick={() => handleDialog('update', product)}
+                        />
+                      ))
+                    )}
+                  </div>
+                  <PaginationWrapper
+                    className='justify-end mt-4'
+                    totalPage={pageData.totalPages}
+                    onPageChange={(page) =>
+                      setPageData((prev) => ({ ...prev, currentPage: page }))
+                    }
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </PageBody>
     </>
   );
 }

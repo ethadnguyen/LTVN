@@ -14,10 +14,10 @@ export class PromotionRes {
   description: string;
 
   @ApiProperty({ description: 'Ngày bắt đầu' })
-  start_date: Date;
+  start_date: string;
 
   @ApiProperty({ description: 'Ngày kết thúc' })
-  end_date: Date;
+  end_date: string;
 
   @ApiProperty({ description: 'Trạng thái' })
   is_active: boolean;

@@ -12,9 +12,6 @@ const apiClient = axios.create({
   },
 });
 
-// Thêm log để kiểm tra
-console.log('BaseURL:', process.env.NEXT_PUBLIC_BASE_URL);
-
 apiClient.interceptors.request.use(
   async (config) => {
     const token = getCookie(accessToken);

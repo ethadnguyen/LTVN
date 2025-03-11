@@ -7,11 +7,14 @@ import { OrderService } from './services/order.service';
 import { OrderRepository } from './repositories/order.repositories';
 import { AddressModule } from '../address/address.module';
 import { ProductModule } from '../products/products.module';
+import { PromotionModule } from '../promotions/promotion.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, OrderItem]),
     AddressModule,
     ProductModule,
+    PromotionModule,
   ],
   controllers: [OrderController],
   providers: [OrderService, OrderRepository],

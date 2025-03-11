@@ -46,7 +46,8 @@ export const get = (
         resolve(res);
       },
       (err) => {
-        errorMessage(err.response?.data.msg || 'something went wrong');
+        console.log(err.response?.data)
+        errorMessage(err.response?.data || 'something went wrong');
         reject(new Error(err));
       }
     );

@@ -1,29 +1,23 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
-import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  ChevronRight,
-  ChevronDown,
-} from 'lucide-react';
-import {
-  CategoryRes,
-  CategoryListRes,
-} from '@/services/types/response/category-res';
+import { Button } from '@/components/ui/button';
+import { PlusCircle, Search, icons } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { CategoryRes } from '@/services/types/response/category-res';
 import {
   fetchAllCategories,
   deleteCategory,
+  updateCategory,
 } from '@/services/modules/categories.service';
-import CategoryDialog from './category-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { CategoryDialog } from './category-dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import CustomBreadcrumb from '@/components/custom/custom-breadcrumb';
 import { PageBody } from '@/components/custom/page-body';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
 import PaginationWrapper from '@/components/custom/pagination-wrapper';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -32,13 +26,23 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import React from 'react';
+import type { LucideIcon } from 'lucide-react';
 
-const getData = async (page: number = 1): Promise<CategoryListRes | null> => {
+interface CategoryListRes {
+  categories: CategoryRes[];
+  totalItems: number;
+  totalPages: number;
+  currentPage: number;
+}
+
+const getData = async (
+  page: number = 1,
+  size: number = 10
+): Promise<CategoryListRes | null> => {
   try {
     const result = await fetchAllCategories({
-      page: page,
-      size: 10,
+      page,
+      size,
     });
     if (result.status === 200) {
       return result.data;
@@ -49,13 +53,14 @@ const getData = async (page: number = 1): Promise<CategoryListRes | null> => {
   }
 };
 
-export default function CategoriesPage() {
-  const [dialog, setDialog] = useState({
-    isOpen: false,
-    isUpdate: false,
-    showDelete: false,
-    selectedCategory: null as CategoryRes | null,
-  });
+export default function CategoryPage() {
+  const [categories, setCategories] = useState<CategoryRes[]>([]);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryRes | null>(
+    null
+  );
+  const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+  const { toast } = useToast();
 
   const [pageData, setPageData] = useState({
     data: null as CategoryListRes | null,
@@ -64,205 +69,134 @@ export default function CategoriesPage() {
     searchKey: '',
   });
 
-  const { toast } = useToast();
-
-  const [categories, setCategories] = useState<CategoryRes[]>([]);
-  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(
-    new Set()
-  );
-
   const fetchData = async () => {
     try {
       setPageData((prev) => ({ ...prev, isLoading: true }));
       const result = await getData(pageData.currentPage);
       setPageData((prev) => ({ ...prev, data: result }));
-    } catch {
+      if (result?.categories) {
+        setCategories(result.categories);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
       toast({
-        title: 'Thất bại',
+        title: 'Lỗi',
         description: 'Không thể tải danh sách danh mục',
         variant: 'destructive',
-        duration: 3000,
       });
     } finally {
       setPageData((prev) => ({ ...prev, isLoading: false }));
     }
   };
 
-  const fetchCategories = async () => {
+  useEffect(() => {
+    fetchData();
+  }, [pageData.currentPage]);
+
+  const handleSearch = () => {
+    setPageData((prev) => ({ ...prev, currentPage: 1 }));
+    fetchData();
+  };
+
+  const handleOpenDialog = (category?: CategoryRes) => {
+    setSelectedCategory(category || null);
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setSelectedCategory(null);
+  };
+
+  const handleDelete = async (id: number) => {
     try {
-      const result = await fetchAllCategories({ size: 1000 });
-      if (result.status === 200) {
-        setCategories(result.data.categories);
-      }
-    } catch (error) {
-      console.error('Lỗi khi tải danh sách categories:', error);
+      await deleteCategory(id);
       toast({
-        title: 'Thất bại',
-        description: 'Không thể tải danh sách danh mục',
+        title: 'Thành công',
+        description: 'Xóa danh mục thành công',
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể xóa danh mục',
         variant: 'destructive',
       });
     }
   };
 
-  useEffect(() => {
-    fetchData();
-    fetchCategories();
-  }, [pageData.currentPage]);
+  const handleToggleActive = async (category: CategoryRes) => {
+    try {
+      const newActiveState = !category.is_active;
 
-  const handleDialog = (
-    type: 'add' | 'update' | 'delete' | 'close',
-    category?: CategoryRes
-  ) => {
-    if (type === 'add' || type === 'update') {
-      fetchCategories();
-    }
+      setCategories((prevCategories) =>
+        prevCategories.map((item) =>
+          item.id === category.id
+            ? { ...item, is_active: newActiveState }
+            : item
+        )
+      );
 
-    if (type === 'close') {
-      fetchCategories();
-    }
-
-    setDialog({
-      isOpen: type === 'add' || type === 'update',
-      isUpdate: type === 'update',
-      showDelete: type === 'delete',
-      selectedCategory: category || null,
-    });
-  };
-
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa danh mục này?')) {
-      try {
-        await deleteCategory(id);
-        toast({
-          title: 'Thành công',
-          description: 'Xóa danh mục thành công',
-          duration: 3000,
-        });
-        fetchData();
-      } catch {
-        toast({
-          title: 'Thất bại',
-          description: 'Không thể xóa danh mục',
-          variant: 'destructive',
-          duration: 3000,
-        });
-      }
-    }
-  };
-
-  const handleSearch = () => {
-    fetchData();
-  };
-
-  const dialogProps = {
-    open: dialog.isOpen,
-    onClose: () => {
-      handleDialog('close');
-    },
-    isUpdate: dialog.isUpdate,
-    dataReq: dialog.selectedCategory,
-    fetchData: fetchData,
-    fetchCategories: fetchCategories,
-    categories: categories,
-  };
-
-  const toggleCategory = (categoryId: number) => {
-    setExpandedCategories((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(categoryId)) {
-        newSet.delete(categoryId);
-      } else {
-        newSet.add(categoryId);
-      }
-      return newSet;
-    });
-  };
-
-  // Kiểm tra xem một danh mục có con hay không
-  const hasChildren = (categoryId: number, categories: CategoryRes[]) => {
-    return categories.some((cat) => cat.parent?.id === categoryId);
-  };
-
-  // Hàm đệ quy để render categories theo cấp
-  const renderCategories = (
-    categories: CategoryRes[],
-    parentId: number | null = null,
-    level: number = 0
-  ) => {
-    return categories
-      .filter((category) => {
-        if (parentId === null) {
-          return !category.parent?.id;
-        }
-        return category.parent?.id === parentId;
-      })
-      .map((category) => {
-        const hasChildCategories = hasChildren(category.id, categories);
-        const isExpanded = expandedCategories.has(category.id);
-
-        return (
-          <React.Fragment key={category.id}>
-            <TableRow className={level > 0 ? 'bg-muted/30' : ''}>
-              <TableCell>
-                {category.parent?.id
-                  ? `${category.parent.id} - ${category.id}`
-                  : category.id}
-              </TableCell>
-              <TableCell>
-                <div className='flex items-center gap-2'>
-                  {hasChildCategories ? (
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='h-6 w-6 p-0'
-                      onClick={() => toggleCategory(category.id)}
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className='h-4 w-4' />
-                      ) : (
-                        <ChevronRight className='h-4 w-4' />
-                      )}
-                    </Button>
-                  ) : (
-                    <div className='w-6' />
-                  )}
-                  <span>{category.name}</span>
-                </div>
-              </TableCell>
-              <TableCell>{category.description}</TableCell>
-              <TableCell>
-                {category.is_active ? 'Hoạt động' : 'Không hoạt động'}
-              </TableCell>
-              <TableCell>
-                <div className='flex space-x-2'>
-                  <Button
-                    variant='outline'
-                    size='icon'
-                    onClick={() => handleDialog('update', category)}
-                  >
-                    <Edit className='h-4 w-4' />
-                  </Button>
-                  <Button
-                    variant='destructive'
-                    size='icon'
-                    onClick={() => handleDelete(category.id)}
-                  >
-                    <Trash2 className='h-4 w-4' />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-            {hasChildCategories &&
-              isExpanded &&
-              renderCategories(categories, category.id, level + 1)}
-          </React.Fragment>
-        );
+      await updateCategory({
+        id: Number(category.id),
+        is_active: newActiveState,
       });
+
+      toast({
+        title: 'Thành công',
+        description: `Danh mục đã được ${
+          newActiveState ? 'kích hoạt' : 'vô hiệu hóa'
+        }`,
+      });
+    } catch (error) {
+      console.error('Error toggling category active status:', error);
+
+      setCategories((prevCategories) =>
+        prevCategories.map((item) =>
+          item.id === category.id
+            ? { ...item, is_active: category.is_active }
+            : item
+        )
+      );
+
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể thay đổi trạng thái danh mục',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Hàm render icon
+  const renderIcon = (iconName: string | null | undefined) => {
+    if (!iconName) return null;
+    const IconComponent = icons[iconName as keyof typeof icons] as LucideIcon;
+    return IconComponent ? <IconComponent className='h-5 w-5' /> : null;
   };
 
   return (
     <>
-      <CategoryDialog {...dialogProps} />
+      <CategoryDialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        category={selectedCategory}
+        onRefresh={fetchData}
+      />
+
+      <ConfirmDialog
+        open={openConfirmDialog}
+        onClose={() => setOpenConfirmDialog(false)}
+        title='Xác nhận xóa'
+        description='Bạn có chắc chắn muốn xóa danh mục này không? Hành động này không thể hoàn tác.'
+        onConfirm={() => {
+          if (selectedCategory) {
+            handleDelete(selectedCategory.id);
+            setOpenConfirmDialog(false);
+          }
+        }}
+      />
+
       <PageBody>
         <div className='flex flex-col gap-4 col-span-12 md:col-span-12'>
           <CustomBreadcrumb
@@ -295,9 +229,9 @@ export default function CategoriesPage() {
                 <Search className='absolute left-0 top-0 m-2.5 h-4 w-4 text-muted-foreground' />
               </div>
               <div className='col-span-6 flex justify-end'>
-                <Button onClick={() => handleDialog('add')}>
-                  <Plus className='mr-2 h-4 w-4' />
-                  Thêm mới
+                <Button onClick={() => handleOpenDialog()}>
+                  <PlusCircle className='mr-2 h-4 w-4' />
+                  Thêm danh mục mới
                 </Button>
               </div>
             </div>
@@ -308,8 +242,7 @@ export default function CategoriesPage() {
                   <div className='flex items-center justify-center h-32 text-muted-foreground'>
                     Đang tải...
                   </div>
-                ) : !pageData.data?.categories ||
-                  pageData.data.categories.length === 0 ? (
+                ) : !categories || categories.length === 0 ? (
                   <div className='flex items-center justify-center h-32 text-muted-foreground'>
                     Chưa có danh mục nào
                   </div>
@@ -318,26 +251,85 @@ export default function CategoriesPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>ID</TableHead>
+                        <TableHead className='text-center'>Icon</TableHead>
                         <TableHead>Tên danh mục</TableHead>
+                        <TableHead>Danh mục cha</TableHead>
                         <TableHead>Mô tả</TableHead>
                         <TableHead>Trạng thái</TableHead>
                         <TableHead>Thao tác</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {renderCategories(pageData.data.categories)}
+                      {categories.map((category) => (
+                        <TableRow key={category.id}>
+                          <TableCell>{category.id}</TableCell>
+                          <TableCell className='text-center'>
+                            <div className='inline-flex justify-center'>
+                              {renderIcon(category.icon)}
+                            </div>
+                          </TableCell>
+                          <TableCell>{category.name}</TableCell>
+                          <TableCell>
+                            {category.parent
+                              ? category.parent.name
+                              : 'Không có'}
+                          </TableCell>
+                          <TableCell>{category.description}</TableCell>
+                          <TableCell>
+                            <div className='flex items-center'>
+                              <Switch
+                                checked={category.is_active}
+                                onCheckedChange={() =>
+                                  handleToggleActive(category)
+                                }
+                                className='mr-2'
+                              />
+                              <Badge
+                                variant={
+                                  category.is_active ? 'default' : 'outline'
+                                }
+                              >
+                                {category.is_active ? 'Hoạt động' : 'Vô hiệu'}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className='flex space-x-2'>
+                              <Button
+                                variant='outline'
+                                size='sm'
+                                onClick={() => handleOpenDialog(category)}
+                              >
+                                Sửa
+                              </Button>
+                              <Button
+                                variant='destructive'
+                                size='sm'
+                                onClick={() => {
+                                  setSelectedCategory(category);
+                                  setOpenConfirmDialog(true);
+                                }}
+                              >
+                                Xóa
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 )}
               </div>
-              {pageData.data && (
-                <PaginationWrapper
-                  className='justify-end mt-4'
-                  totalPage={pageData.data.totalPages}
-                  onPageChange={(page) =>
-                    setPageData((prev) => ({ ...prev, currentPage: page }))
-                  }
-                />
+              {pageData.data && pageData.data.totalPages > 1 && (
+                <div className='mt-4 flex justify-center'>
+                  <PaginationWrapper
+                    totalPage={pageData.data.totalPages}
+                    selectedPage={pageData.data.currentPage}
+                    onPageChange={(page) =>
+                      setPageData((prev) => ({ ...prev, currentPage: page }))
+                    }
+                  />
+                </div>
               )}
             </div>
           </div>

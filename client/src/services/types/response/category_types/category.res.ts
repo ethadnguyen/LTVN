@@ -8,6 +8,8 @@ export interface CategoryRes {
   description: string;
   slug: string;
   is_active: boolean;
+  icon?: React.ElementType;
+  products_count: number;
   created_at: string;
   updated_at: string;
 }

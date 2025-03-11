@@ -48,4 +48,14 @@ export class ReviewRepository {
   async delete(id: number): Promise<void> {
     await this.reviewRepository.delete(id);
   }
+
+  async calculateAverageRating(productId: number): Promise<number> {
+    const result = await this.reviewRepository
+      .createQueryBuilder('review')
+      .select('AVG(review.rating)', 'averageRating')
+      .where('review.product = :productId', { productId })
+      .getRawOne();
+
+    return result.averageRating ? parseFloat(result.averageRating) : 0;
+  }
 }

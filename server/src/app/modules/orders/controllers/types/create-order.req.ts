@@ -44,4 +44,12 @@ export class CreateOrderReq {
   @IsObject()
   @IsOptional()
   new_address?: CreateAddressReq;
+
+  @ApiProperty({
+    description: 'ID của khuyến mãi áp dụng cho đơn hàng',
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  promotion_id?: number;
 }

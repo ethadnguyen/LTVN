@@ -18,12 +18,12 @@ export class UpdatePromotionReq {
 
   @ApiProperty()
   @IsString()
-  @IsNotEmpty()
   @IsOptional()
   name?: string;
 
   @ApiProperty()
   @IsString()
+  @IsOptional()
   description?: string;
 
   @ApiProperty()
@@ -47,14 +47,29 @@ export class UpdatePromotionReq {
   maximum_discount_amount?: number;
 
   @ApiProperty()
-  @IsDate()
+  @IsNumber()
   @IsOptional()
-  start_date?: Date;
+  minimum_order_amount?: number;
 
   @ApiProperty()
-  @IsDate()
+  @IsNumber()
   @IsOptional()
-  end_date?: Date;
+  usage_limit?: number;
+
+  @ApiProperty()
+  @IsNumber()
+  @IsOptional()
+  used_count?: number;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  start_date?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  end_date?: string;
 
   @ApiProperty()
   @IsArray()

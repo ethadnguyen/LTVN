@@ -1,3 +1,4 @@
+import { BrandRes } from '../brand_types/brand.res';
 import { CategoryRes } from '../category_types/category.res';
 import { PaginationRes } from '../pagination_types/pagination-res';
 
@@ -15,14 +16,19 @@ export const enum ProductType {
 export interface ProductRes {
   id: number;
   name: string;
+  description: string;
   type: ProductType;
   slug: string;
   stock: number;
   price: number;
   category: CategoryRes;
+  brand: BrandRes;
   images: string[];
   specifications: Record<string, string>;
   is_active: boolean;
+  is_sale?: boolean;
+  sale_price?: number;
+  rating: number;
   created_at: string;
   updated_at: string;
 }

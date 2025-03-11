@@ -26,6 +26,14 @@ export const CoolingForm = ({
     onChange(isNaN(value) ? 0 : Math.max(0, value));
   };
 
+  const handleFloatChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onChange: (value: number) => void
+  ) => {
+    const value = parseFloat(e.target.value);
+    onChange(isNaN(value) ? 0 : Math.max(0, value));
+  };
+
   const addSocketSupport = (socket: SocketType) => {
     const currentSockets = form.getValues('socket_support') || [];
     if (!currentSockets.includes(socket)) {
@@ -184,8 +192,9 @@ export const CoolingForm = ({
                 <Input
                   {...field}
                   type='number'
+                  step='0.1'
                   placeholder='Độ ồn'
-                  onChange={(e) => handleNumberChange(e, field.onChange)}
+                  onChange={(e) => handleFloatChange(e, field.onChange)}
                 />
                 {fieldState.error && (
                   <span className='text-sm text-destructive'>

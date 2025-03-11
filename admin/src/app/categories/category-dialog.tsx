@@ -1,258 +1,314 @@
 'use client';
 
-import React from 'react';
-import { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/button';
+import { z } from 'zod';
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Trash } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { CategoryRes } from '@/services/types/response/category-res';
-import { CategorySelect } from '@/components/category/category-select';
 import {
   createCategory,
-  deleteCategory,
   updateCategory,
+  fetchAllCategories,
 } from '@/services/modules/categories.service';
-import { categorySchema, type CategoryFormValues } from './category-schema';
-import { successMessage, errorMessage } from '@/common/message';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { categorySchema } from './category-schema';
+import { IconPicker } from '@/components/ui/icon-picker';
+import '@flaticon/flaticon-uicons/css/all/all.css';
+
+type CategoryFormValues = z.infer<typeof categorySchema>;
 
 interface CategoryDialogProps {
-  open?: boolean;
-  isUpdate?: boolean;
-  onClose?: () => void;
-  dataReq: CategoryRes | null;
-  fetchData: () => void;
-  fetchCategories: () => void;
-  categories: CategoryRes[];
+  open: boolean;
+  onClose: () => void;
+  category?: CategoryRes | null;
+  onRefresh?: () => void;
 }
 
-const CategoryDialog: React.FC<CategoryDialogProps> = ({
+export function CategoryDialog({
   open,
-  isUpdate,
   onClose,
-  dataReq,
-  fetchData,
-  fetchCategories,
-  categories,
-}) => {
-  const [loading, setLoading] = useState(false);
+  category,
+  onRefresh,
+}: CategoryDialogProps) {
+  const { toast } = useToast();
+  const isUpdate = !!category;
+  const [parentCategories, setParentCategories] = useState<CategoryRes[]>([]);
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
     defaultValues: {
       name: '',
       description: '',
-      is_active: true,
+      icon: '',
       parent_id: null,
+      is_active: true,
     },
   });
 
-  const {
-    control,
-    handleSubmit,
-    setValue,
-    reset,
-    formState: { errors },
-  } = form;
+  const flattenCategories = (categories: CategoryRes[]): CategoryRes[] => {
+    // Sử dụng Set để theo dõi các ID đã xử lý
+    const processedIds = new Set<string | number>();
+    const flat: CategoryRes[] = [];
+
+    const processCategory = (cat: CategoryRes) => {
+      // Nếu ID đã được xử lý, bỏ qua
+      if (processedIds.has(cat.id)) return;
+
+      // Thêm ID vào danh sách đã xử lý
+      processedIds.add(cat.id);
+      flat.push(cat);
+
+      // Xử lý các danh mục con
+      if (cat.children && cat.children.length > 0) {
+        cat.children.forEach(processCategory);
+      }
+    };
+
+    categories.forEach(processCategory);
+    return flat;
+  };
+
+  const fetchParentCategories = async () => {
+    try {
+      const result = await fetchAllCategories({ size: 1000 });
+      console.log('Danh mục từ API:', result.data);
+      if (result.status === 200) {
+        // Làm phẳng toàn bộ cây danh mục (đã loại bỏ trùng lặp)
+        const allCategories = flattenCategories(result.data.categories);
+
+        if (isUpdate && category) {
+          const currentId = Number(category.id);
+
+          // Lọc bỏ danh mục hiện tại và các danh mục con của nó
+          const filteredCategories = allCategories.filter((cat) => {
+            const catId = Number(cat.id);
+            if (catId === currentId) return false;
+
+            // Kiểm tra xem cat có phải là con của currentId không
+            const isDescendant = (
+              category: CategoryRes,
+              ancestorId: number
+            ): boolean => {
+              if (!category.parent) return false;
+              if (Number(category.parent.id) === ancestorId) return true;
+              return isDescendant(category.parent, ancestorId);
+            };
+
+            return !isDescendant(cat, currentId);
+          });
+
+          setParentCategories(filteredCategories);
+        } else {
+          // Khi tạo mới, sử dụng tất cả danh mục
+          setParentCategories(allCategories);
+        }
+      }
+    } catch (error) {
+      console.error('Lỗi khi lấy danh mục cha:', error);
+    }
+  };
 
   useEffect(() => {
-    if (isUpdate && dataReq) {
-      setValue('name', dataReq.name);
-      setValue('description', dataReq.description);
-      setValue('is_active', dataReq.is_active);
-      setValue('parent_id', dataReq.parent?.id);
+    if (open) {
+      fetchParentCategories();
     }
-  }, [isUpdate, dataReq, setValue]);
+  }, [open]);
 
   useEffect(() => {
-    if (!open) {
-      reset();
+    if (category) {
+      form.reset({
+        name: category.name,
+        description: category.description || '',
+        icon: category.icon || '',
+        parent_id: category.parent ? Number(category.parent.id) : null,
+        is_active: category.is_active,
+      });
+      console.log(
+        'Đặt parent_id:',
+        category.parent ? Number(category.parent.id) : null
+      );
+    } else {
+      form.reset({
+        name: '',
+        description: '',
+        icon: '',
+        parent_id: null,
+        is_active: true,
+      });
     }
-  }, [open, reset]);
+  }, [category, form]);
 
   const onSubmit = async (data: CategoryFormValues) => {
-    setLoading(true);
     try {
-      if (isUpdate && dataReq) {
-        await updateCategory(Number(dataReq.id), {
+      if (isUpdate && category) {
+        const updateData = {
+          id: Number(category.id),
           name: data.name,
-          description: data.description,
+          description: data.description || '',
+          icon: data.icon || '',
+          parent_id: Number(data.parent_id) || null,
           is_active: data.is_active,
-          parent_id: data.parent_id,
+        };
+
+        await updateCategory(updateData);
+
+        toast({
+          title: 'Thành công',
+          description: 'Cập nhật danh mục thành công',
         });
-        successMessage('Cập nhật danh mục thành công');
       } else {
         await createCategory({
           name: data.name,
-          description: data.description,
+          description: data.description || '',
+          icon: data.icon || '',
+          parent_id: Number(data.parent_id),
           is_active: data.is_active,
-          parent_id: data.parent_id,
         });
-        successMessage('Thêm danh mục thành công');
+        toast({
+          title: 'Thành công',
+          description: 'Thêm danh mục mới thành công',
+        });
+        form.reset({
+          name: '',
+          description: '',
+          icon: '',
+          parent_id: null,
+          is_active: true,
+        });
       }
-
-      // Cập nhật danh sách categories trước khi đóng dialog
-      if (fetchCategories) fetchCategories();
-      if (fetchData) fetchData();
-
-      if (onClose) onClose();
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        errorMessage(error.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
-      } else {
-        errorMessage('Có lỗi xảy ra. Vui lòng thử lại.');
-      }
-    } finally {
-      setLoading(false);
+      onRefresh?.();
+      onClose();
+    } catch (error) {
+      console.error('Error saving category:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể lưu danh mục',
+        variant: 'destructive',
+      });
     }
   };
 
-  const handleDelete = async () => {
-    if (!dataReq) return;
-    try {
-      await deleteCategory(dataReq.id);
-      successMessage('Xóa danh mục thành công');
-
-      // Cập nhật danh sách categories trước khi đóng dialog
-      if (fetchCategories) fetchCategories();
-      if (fetchData) fetchData();
-
-      if (onClose) onClose();
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        errorMessage(error.message || 'Không thể xóa danh mục');
-      } else {
-        errorMessage('Không thể xóa danh mục');
-      }
-    }
-  };
+  // Render icon được chọn
+  const selectedIconName = form.watch('icon');
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && onClose?.()}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className='sm:max-w-[500px]'>
-        {loading && (
-          <div className='absolute inset-0 bg-white/50 flex items-center justify-center'>
-            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900'></div>
-          </div>
-        )}
         <DialogHeader>
           <DialogTitle>
             {isUpdate ? 'Cập nhật danh mục' : 'Thêm danh mục mới'}
           </DialogTitle>
         </DialogHeader>
+        <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
+          <div className='grid gap-2'>
+            <Label htmlFor='name'>Tên danh mục</Label>
+            <Input
+              id='name'
+              placeholder='Nhập tên danh mục'
+              {...form.register('name')}
+            />
+            {form.formState.errors.name && (
+              <p className='text-sm text-destructive'>
+                {form.formState.errors.name.message}
+              </p>
+            )}
+          </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className='grid gap-4 py-4'>
-            <div className='grid gap-2'>
-              <Label htmlFor='name'>Tên danh mục</Label>
-              <Controller
-                name='name'
-                control={control}
-                render={({ field }) => (
-                  <div>
-                    <Input
-                      {...field}
-                      id='name'
-                      placeholder='Nhập tên danh mục'
-                    />
-                    {errors.name && (
-                      <span className='text-sm text-red-500'>
-                        {errors.name.message}
-                      </span>
-                    )}
-                  </div>
-                )}
-              />
-            </div>
-
-            <div className='grid gap-2'>
-              <Label htmlFor='description'>Mô tả</Label>
-              <Controller
-                name='description'
-                control={control}
-                render={({ field }) => (
-                  <div>
-                    <Textarea
-                      {...field}
-                      id='description'
-                      placeholder='Nhập mô tả'
-                    />
-                    {errors.description && (
-                      <span className='text-sm text-red-500'>
-                        {errors.description.message}
-                      </span>
-                    )}
-                  </div>
-                )}
-              />
-            </div>
-
-            <div className='flex items-center space-x-2'>
-              <Controller
-                name='is_active'
-                control={control}
-                render={({ field }) => (
-                  <Switch
-                    id='is_active'
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
-              <Label htmlFor='is_active'>Hoạt động</Label>
-            </div>
-
-            <div className='grid gap-2'>
-              <Label>Danh mục cha</Label>
-              <Controller
-                name='parent_id'
-                control={control}
-                render={({ field }) => (
-                  <CategorySelect
-                    value={field.value ?? null}
-                    onChange={field.onChange}
-                    categories={categories}
-                    excludeId={isUpdate ? dataReq?.id : undefined}
-                    className='w-full'
-                    onFocus={fetchCategories}
-                    refreshCategories={fetchCategories}
-                  />
-                )}
-              />
+          <div className='grid gap-2'>
+            <Label htmlFor='icon'>Icon</Label>
+            <div className='flex gap-2 items-center'>
+              <div className='flex-1'>
+                <IconPicker
+                  value={form.watch('icon')}
+                  onChange={(value) => form.setValue('icon', value)}
+                />
+              </div>
+              {selectedIconName && (
+                <div className='flex items-center justify-center w-10 h-10 border rounded-md'>
+                  <i className={`${selectedIconName} text-xl`}></i>
+                </div>
+              )}
             </div>
           </div>
 
-          <DialogFooter>
-            {isUpdate && (
-              <Button
-                type='button'
-                variant='outline'
-                onClick={handleDelete}
-                className='mr-auto'
-              >
-                <Trash className='mr-2 h-4 w-4' />
-                Xóa
-              </Button>
+          <div className='grid gap-2'>
+            <Label htmlFor='parent_id'>Danh mục cha</Label>
+            <Select
+              value={
+                form.watch('parent_id') === null
+                  ? 'null'
+                  : String(form.watch('parent_id'))
+              }
+              onValueChange={(value) => {
+                form.setValue(
+                  'parent_id',
+                  value === 'null' ? null : parseInt(value)
+                );
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder='Chọn danh mục cha (nếu có)' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='null'>Không có</SelectItem>
+                {parentCategories.map((cat) => (
+                  <SelectItem key={`category-${cat.id}`} value={String(cat.id)}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className='grid gap-2'>
+            <Label htmlFor='description'>Mô tả</Label>
+            <Textarea
+              id='description'
+              placeholder='Nhập mô tả về danh mục'
+              {...form.register('description')}
+            />
+            {form.formState.errors.description && (
+              <p className='text-sm text-destructive'>
+                {form.formState.errors.description.message}
+              </p>
             )}
-            <Button type='submit' disabled={loading}>
-              {loading ? 'Đang xử lý...' : isUpdate ? 'Cập nhật' : 'Thêm mới'}
+          </div>
+
+          <div className='flex items-center space-x-2'>
+            <Switch
+              id='is_active'
+              checked={form.watch('is_active')}
+              onCheckedChange={(checked) => form.setValue('is_active', checked)}
+            />
+            <Label htmlFor='is_active'>Kích hoạt</Label>
+          </div>
+
+          <div className='flex justify-end space-x-2'>
+            <Button type='button' variant='outline' onClick={onClose}>
+              Hủy
             </Button>
-          </DialogFooter>
+            <Button type='submit'>{isUpdate ? 'Cập nhật' : 'Thêm mới'}</Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
   );
-};
-
-export default CategoryDialog;
+}

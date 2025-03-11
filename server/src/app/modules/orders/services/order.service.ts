@@ -9,12 +9,14 @@ import { Order } from '../entities/order.entity';
 import { AddressService } from '../../address/services/address.service';
 import { GetAllOrderInput } from './types/get.all.order.input';
 import { OrderStatus } from '../enums/order-status.enum';
+import { PromotionService } from '../../promotions/services/promotion.service';
 
 @Injectable()
 export class OrderService {
   constructor(
     private readonly orderRepository: OrderRepository,
     private readonly addressService: AddressService,
+    private readonly promotionService: PromotionService,
   ) {}
 
   async createOrder(input: CreateOrderInput) {
@@ -38,9 +40,36 @@ export class OrderService {
       return orderItem;
     });
 
+    // Tính toán khuyến mãi nếu có
+    let discountAmount = 0;
+    let finalPrice = input.total_price;
+    let promotionId = null;
+
+    if (input.promotion_id) {
+      const productItems = input.order_items.map((item) => ({
+        productId: item.product_id,
+        quantity: item.quantity,
+      }));
+
+      const discountResult = await this.promotionService.calculateDiscount(
+        input.promotion_id,
+        productItems,
+        true, // Tăng số lần sử dụng khuyến mãi
+      );
+
+      if (discountResult.isValid) {
+        discountAmount = discountResult.discountAmount;
+        finalPrice = input.total_price - discountAmount;
+        promotionId = input.promotion_id;
+      }
+    }
+
     const order = new Order();
     order.order_items = orderItems;
-    order.total_price = input.total_price;
+    order.total_price = finalPrice;
+    order.original_price = input.total_price;
+    order.discount_amount = discountAmount;
+    order.promotion_id = promotionId;
     order.phone = input.phone;
     order.status = input.status || OrderStatus.PENDING;
     order.address = address;

@@ -5,8 +5,8 @@ export interface CreatePromotionInput {
   description: string;
   discount_type: DiscountType;
   discount_value: number;
-  start_date: Date;
-  end_date: Date;
+  start_date: string;
+  end_date: string;
   is_active?: boolean;
   usage_limit: number;
   used_count?: number;

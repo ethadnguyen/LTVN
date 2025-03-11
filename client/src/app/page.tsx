@@ -13,187 +13,33 @@ import {
   Gamepad,
   Keyboard,
   Mouse,
+  LucideIcon,
 } from 'lucide-react';
 import type { CategoryRes } from '@/services/types/response/category_types/category.res';
+import { getActiveCategories } from '@/services/modules/category.service';
+import { getFeaturedProducts } from '@/services/modules/product.service';
+import { ProductRes } from '@/services/types/response/product_types/product.res';
 
-const categories: CategoryRes[] = [
-  {
-    id: 1,
-    name: 'Linh kiện PC',
-    parent: null,
-    children: [],
-    description: 'Các linh kiện máy tính',
-    slug: 'linh-kien-pc',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-    icon: Box,
-  },
-  {
-    id: 2,
-    name: 'Laptop',
-    parent: null,
-    children: [],
-    description: 'Máy tính xách tay',
-    slug: 'laptop',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-    icon: Laptop,
-  },
-  {
-    id: 3,
-    name: 'CPU',
-    parent: null,
-    children: [],
-    description: 'Bộ vi xử lý',
-    slug: 'cpu',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-    icon: Cpu,
-  },
-  {
-    id: 4,
-    name: 'Mainboard',
-    parent: null,
-    children: [],
-    description: 'Bo mạch chủ',
-    slug: 'mainboard',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-    icon: CircuitBoard,
-  },
-  {
-    id: 5,
-    name: 'RAM',
-    parent: null,
-    children: [],
-    description: 'Bộ nhớ RAM',
-    slug: 'ram',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-    icon: Memory,
-  },
-  {
-    id: 6,
-    name: 'VGA',
-    parent: null,
-    children: [],
-    description: 'Card đồ họa',
-    slug: 'vga',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-    icon: Gpu,
-  },
-  {
-    id: 7,
-    name: 'Ổ cứng',
-    parent: null,
-    children: [],
-    description: 'Ổ cứng SSD/HDD',
-    slug: 'storage',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-    icon: HardDrive,
-  },
-  {
-    id: 8,
-    name: 'Gaming Gear',
-    parent: null,
-    children: [],
-    description: 'Phụ kiện gaming',
-    slug: 'gaming-gear',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-    icon: Gamepad,
-  },
-  {
-    id: 9,
-    name: 'Bàn phím',
-    parent: null,
-    children: [],
-    description: 'Bàn phím',
-    slug: 'ban-phim',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-    icon: Keyboard,
-  },
-  {
-    id: 10,
-    name: 'Chuột',
-    parent: null,
-    children: [],
-    description: 'Chuột',
-    slug: 'chuot',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-    icon: Mouse,
-  },
-];
+const iconMap: Record<string, LucideIcon> = {
+  Box,
+  Cpu,
+  CircuitBoard,
+  Memory,
+  Gpu,
+  HardDrive,
+  Laptop,
+  Gamepad,
+  Keyboard,
+  Mouse,
+};
 
-// Cập nhật dữ liệu mẫu để loại bỏ isNew và đổi tên isSale thành is_sale
-const featuredProducts = [
-  {
-    id: '1',
-    name: 'AMD Ryzen 7 5800X',
-    slug: 'amd-ryzen-7-5800x',
-    price: 7990000,
-    image: '/placeholder.svg?height=300&width=300',
-    rating: 4.5,
-    category: 'CPU',
-    is_sale: true,
-  },
-  {
-    id: '2',
-    name: 'NVIDIA GeForce RTX 3070',
-    slug: 'nvidia-geforce-rtx-3070',
-    price: 15990000,
-    image: '/placeholder.svg?height=300&width=300',
-    rating: 4.8,
-    category: 'VGA',
-    is_sale: true,
-  },
-  {
-    id: '3',
-    name: 'Kingston FURY Beast 32GB DDR4 3200MHz',
-    slug: 'kingston-fury-beast-32gb-ddr4-3200mhz',
-    price: 2490000,
-    image: '/placeholder.svg?height=300&width=300',
-    rating: 4.6,
-    category: 'RAM',
-    is_sale: false,
-  },
-  {
-    id: '4',
-    name: 'Samsung 970 EVO Plus 1TB NVMe SSD',
-    slug: 'samsung-970-evo-plus-1tb-nvme-ssd',
-    price: 2990000,
-    image: '/placeholder.svg?height=300&width=300',
-    rating: 4.9,
-    category: 'SSD',
-    is_sale: true,
-  },
-  {
-    id: '5',
-    name: 'ASUS ROG Strix B550-F Gaming',
-    slug: 'asus-rog-strix-b550-f-gaming',
-    price: 4590000,
-    image: '/placeholder.svg?height=300&width=300',
-    rating: 4.7,
-    category: 'Mainboard',
-    is_sale: false,
-  },
-];
+export default async function Home() {
+  const categoriesData = await getActiveCategories();
+  const categories: CategoryRes[] = categoriesData.categories || [];
 
-export default function Home() {
+  const featuredProductsData = await getFeaturedProducts({ size: 8 });
+  const featuredProducts: ProductRes[] = featuredProductsData.products || [];
+
   return (
     <div className='container-custom'>
       {/* Hero Banner */}
@@ -208,7 +54,7 @@ export default function Home() {
             </p>
             <div className='flex flex-col sm:flex-row gap-4'>
               <Button size='lg' asChild>
-                <Link href='/pc-builder'>PC Builder</Link>
+                <Link href='/builder'>PC Builder</Link>
               </Button>
               <Button size='lg' variant='outline' asChild>
                 <Link href='/category/all'>Xem sản phẩm</Link>
@@ -227,15 +73,22 @@ export default function Home() {
           </Button>
         </div>
         <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4'>
-          {categories.map((category) => (
-            <CategoryCard
-              key={category.id}
-              name={category.name}
-              slug={category.slug}
-              icon={category.icon || Box}
-              productCount={Math.floor(Math.random() * 100) + 10} // Giả lập số lượng sản phẩm
-            />
-          ))}
+          {categories.map((category) => {
+            const IconComponent =
+              category.icon && typeof category.icon === 'string'
+                ? iconMap[category.icon] || Box
+                : Box;
+
+            return (
+              <CategoryCard
+                key={category.id}
+                name={category.name}
+                slug={category.slug}
+                icon={IconComponent}
+                productCount={category.products_count}
+              />
+            );
+          })}
         </div>
       </section>
 
@@ -248,19 +101,30 @@ export default function Home() {
           </Button>
         </div>
         <div className='product-grid'>
-          {featuredProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              id={product.id}
-              name={product.name}
-              slug={product.slug}
-              price={product.price}
-              image={product.image}
-              rating={product.rating}
-              category={product.category}
-              is_sale={product.is_sale}
-            />
-          ))}
+          {featuredProducts.length > 0 ? (
+            featuredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                id={product.id.toString()}
+                name={product.name}
+                slug={product.slug}
+                price={product.price}
+                image={
+                  product.images && product.images.length > 0
+                    ? product.images[0]
+                    : '/placeholder.svg?height=300&width=300'
+                }
+                rating={product.rating || 0}
+                category={product.type}
+                is_sale={product.is_sale || false}
+                sale_price={product.sale_price || 0}
+              />
+            ))
+          ) : (
+            <p className='col-span-full text-center text-muted-foreground py-8'>
+              Không có sản phẩm nổi bật nào.
+            </p>
+          )}
         </div>
       </section>
 
@@ -279,7 +143,7 @@ export default function Home() {
             </p>
             <div>
               <Button size='lg' asChild>
-                <Link href='/pc-builder'>Bắt đầu ngay</Link>
+                <Link href='/builder'>Bắt đầu ngay</Link>
               </Button>
             </div>
           </div>

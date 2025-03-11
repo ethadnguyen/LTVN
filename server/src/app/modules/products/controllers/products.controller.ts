@@ -50,11 +50,43 @@ export class ProductController {
     return this.productService.getAllProducts(queryParams);
   }
 
+  @Get('/featured')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Get featured products for homepage' })
+  @ApiResponse({
+    status: 200,
+    type: ProductListRes,
+  })
+  async getFeaturedProducts(@Query() queryParams: GetAllProductReq) {
+    return this.productService.getFeaturedProducts(queryParams);
+  }
+
   @Get(':id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Get product by id' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.productService.getProductById(id);
+  }
+
+  @Get('slug/:slug')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Get product by slug' })
+  async getProductBySlug(@Param('slug') slug: string) {
+    return this.productService.getProductBySlug(slug);
+  }
+
+  @Get('category/:slug')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Get products by category slug' })
+  @ApiResponse({
+    status: 200,
+    type: ProductListRes,
+  })
+  async getProductsByCategorySlug(
+    @Param('slug') slug: string,
+    @Query() queryParams: GetAllProductReq,
+  ) {
+    return this.productService.getProductsByCategorySlug(slug, queryParams);
   }
 
   @Put('update')
@@ -72,5 +104,19 @@ export class ProductController {
   @ApiOperation({ summary: 'Delete product' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.productService.deleteProduct(id);
+  }
+
+  @Put('sale-status/:id')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Update product sale status' })
+  async updateSaleStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateSaleStatusReq: { is_sale: boolean; sale_price: number },
+  ) {
+    return this.productService.updateProductSaleStatus(
+      id,
+      updateSaleStatusReq.is_sale,
+      updateSaleStatusReq.sale_price,
+    );
   }
 }

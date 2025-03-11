@@ -2,8 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions, In, DataSource } from 'typeorm';
 import { Product } from '../entities/products.entity';
-import { CPU } from '../entities/cpu.entity';
-import { ProductType } from '../enums/product-type.enum';
 
 @Injectable()
 export class ProductRepository {
@@ -27,6 +25,15 @@ export class ProductRepository {
       .leftJoinAndSelect('product.categories', 'categories')
       .leftJoinAndSelect('product.brand', 'brand')
       .where('product.id = :id', { id })
+      .getOne();
+  }
+
+  async findBySlug(slug: string): Promise<Product> {
+    return await this.productRepo
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.categories', 'categories')
+      .leftJoinAndSelect('product.brand', 'brand')
+      .where('product.slug = :slug', { slug })
       .getOne();
   }
 
@@ -59,6 +66,12 @@ export class ProductRepository {
     },
     category_id?: number,
     is_active?: boolean,
+    search?: string,
+    min_price?: number,
+    max_price?: number,
+    is_sale?: boolean,
+    min_rating?: number,
+    brands?: string[],
   ): Promise<[Product[], number]> {
     const queryBuilder = this.productRepo.createQueryBuilder('product');
 
@@ -69,8 +82,41 @@ export class ProductRepository {
       queryBuilder.andWhere('categories.id = :category_id', { category_id });
     }
 
-    if (is_active) {
+    if (is_active !== undefined) {
       queryBuilder.andWhere('product.is_active = :is_active', { is_active });
+    }
+
+    // Áp dụng filter search
+    if (search) {
+      queryBuilder.andWhere('product.name ILIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    // Áp dụng filter giá
+    if (min_price !== undefined) {
+      console.log('Applying min_price filter:', min_price);
+      queryBuilder.andWhere('product.price >= :min_price', { min_price });
+    }
+
+    if (max_price !== undefined) {
+      console.log('Applying max_price filter:', max_price);
+      queryBuilder.andWhere('product.price <= :max_price', { max_price });
+    }
+
+    // Áp dụng filter is_sale
+    if (is_sale !== undefined) {
+      queryBuilder.andWhere('product.is_sale = :is_sale', { is_sale });
+    }
+
+    // Áp dụng filter min_rating
+    if (min_rating !== undefined) {
+      queryBuilder.andWhere('product.rating >= :min_rating', { min_rating });
+    }
+
+    // Áp dụng filter brands
+    if (brands && brands.length > 0) {
+      queryBuilder.andWhere('brand.name IN (:...brands)', { brands });
     }
 
     queryBuilder
@@ -151,5 +197,158 @@ export class ProductRepository {
 
   async softDelete(id: number): Promise<void> {
     await this.productRepo.update(id, { is_active: false });
+  }
+
+  async findByCategories(categoryIds: number[]): Promise<Product[]> {
+    if (!categoryIds || categoryIds.length === 0) {
+      return [];
+    }
+
+    const queryBuilder = this.productRepo
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.categories', 'categories')
+      .leftJoinAndSelect('product.brand', 'brand')
+      .where('categories.id IN (:...categoryIds)', { categoryIds });
+
+    return await queryBuilder.getMany();
+  }
+
+  async findByCategorySlug(
+    slug: string,
+    paginationOptions: {
+      skip: number;
+      take: number;
+    },
+    is_active?: boolean,
+    search?: string,
+    min_price?: number,
+    max_price?: number,
+    is_sale?: boolean,
+    min_rating?: number,
+    brands?: string[],
+  ): Promise<[Product[], number]> {
+    const queryBuilder = this.productRepo
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.categories', 'categories')
+      .leftJoinAndSelect('product.brand', 'brand')
+      .where('categories.slug = :slug', { slug });
+
+    // Áp dụng filter is_active
+    if (is_active !== undefined) {
+      queryBuilder.andWhere('product.is_active = :is_active', { is_active });
+    }
+
+    // Áp dụng filter search
+    if (search) {
+      queryBuilder.andWhere('product.name ILIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    // Áp dụng filter giá
+    if (min_price !== undefined) {
+      queryBuilder.andWhere('product.price >= :min_price', { min_price });
+    }
+
+    if (max_price !== undefined) {
+      queryBuilder.andWhere('product.price <= :max_price', { max_price });
+    }
+
+    // Áp dụng filter is_sale
+    if (is_sale !== undefined) {
+      queryBuilder.andWhere('product.is_sale = :is_sale', { is_sale });
+    }
+
+    // Áp dụng filter min_rating
+    if (min_rating !== undefined) {
+      queryBuilder.andWhere('product.rating >= :min_rating', { min_rating });
+    }
+
+    // Áp dụng filter brands
+    if (brands && brands.length > 0) {
+      queryBuilder.andWhere('brand.name IN (:...brands)', { brands });
+    }
+
+    const total = await queryBuilder.getCount();
+
+    queryBuilder
+      .skip(paginationOptions.skip)
+      .take(paginationOptions.take)
+      .orderBy('product.created_at', 'DESC');
+
+    const products = await queryBuilder.getMany();
+
+    return [products, total];
+  }
+
+  async findFeaturedProducts(
+    paginationOptions: {
+      skip: number;
+      take: number;
+    },
+    is_active?: boolean,
+    search?: string,
+    min_price?: number,
+    max_price?: number,
+    is_sale?: boolean,
+    min_rating?: number,
+    brands?: string[],
+  ): Promise<[Product[], number]> {
+    const queryBuilder = this.productRepo
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.categories', 'categories')
+      .leftJoinAndSelect('product.brand', 'brand');
+
+    if (is_active !== undefined) {
+      queryBuilder.andWhere('product.is_active = :is_active', { is_active });
+    }
+
+    // Áp dụng filter search
+    if (search) {
+      queryBuilder.andWhere('product.name ILIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    // Áp dụng filter giá
+    if (min_price !== undefined) {
+      queryBuilder.andWhere('product.price >= :min_price', { min_price });
+    }
+
+    if (max_price !== undefined) {
+      queryBuilder.andWhere('product.price <= :max_price', { max_price });
+    }
+
+    // Áp dụng filter is_sale
+    if (is_sale !== undefined) {
+      queryBuilder.andWhere('product.is_sale = :is_sale', { is_sale });
+    }
+
+    // Áp dụng filter min_rating
+    if (min_rating !== undefined) {
+      queryBuilder.andWhere('product.rating >= :min_rating', { min_rating });
+    }
+
+    // Áp dụng filter brands
+    if (brands && brands.length > 0) {
+      queryBuilder.andWhere('brand.name IN (:...brands)', { brands });
+    }
+
+    // Lấy tổng số sản phẩm
+    const total = await queryBuilder.getCount();
+
+    // Thêm điều kiện sắp xếp để lấy sản phẩm nổi bật
+    // Ưu tiên theo thứ tự: sản phẩm đang sale, có stock > 0, mới nhất
+    queryBuilder
+      .orderBy('product.is_sale', 'DESC')
+      // Sử dụng cách khác để sắp xếp theo stock > 0
+      .addOrderBy('product.stock', 'DESC')
+      .addOrderBy('product.created_at', 'DESC')
+      .skip(paginationOptions.skip)
+      .take(paginationOptions.take);
+
+    const products = await queryBuilder.getMany();
+
+    return [products, total];
   }
 }

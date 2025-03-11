@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Menu, X, Heart, User } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Button } from '@/components/ui/button';
@@ -23,289 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import type { CategoryRes } from '@/services/types/response/category_types/category.res';
-
-// Giả lập dữ liệu danh mục phân cấp
-const categories: CategoryRes[] = [
-  {
-    id: 1,
-    name: 'Linh kiện PC',
-    parent: null,
-    children: [
-      {
-        id: 11,
-        name: 'CPU',
-        parent: {
-          id: 1,
-          name: 'Linh kiện PC',
-          parent: null,
-          children: [],
-          description: '',
-          slug: 'linh-kien-pc',
-          is_active: true,
-          created_at: '',
-          updated_at: '',
-        },
-        children: [
-          {
-            id: 111,
-            name: 'Intel',
-            parent: {
-              id: 11,
-              name: 'CPU',
-              parent: null,
-              children: [],
-              description: '',
-              slug: 'cpu',
-              is_active: true,
-              created_at: '',
-              updated_at: '',
-            },
-            children: [],
-            description: 'CPU Intel',
-            slug: 'cpu-intel',
-            is_active: true,
-            created_at: '',
-            updated_at: '',
-          },
-          {
-            id: 112,
-            name: 'AMD',
-            parent: {
-              id: 11,
-              name: 'CPU',
-              parent: null,
-              children: [],
-              description: '',
-              slug: 'cpu',
-              is_active: true,
-              created_at: '',
-              updated_at: '',
-            },
-            children: [],
-            description: 'CPU AMD',
-            slug: 'cpu-amd',
-            is_active: true,
-            created_at: '',
-            updated_at: '',
-          },
-        ],
-        description: 'Bộ vi xử lý',
-        slug: 'cpu',
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-      {
-        id: 12,
-        name: 'Mainboard',
-        parent: {
-          id: 1,
-          name: 'Linh kiện PC',
-          parent: null,
-          children: [],
-          description: '',
-          slug: 'linh-kien-pc',
-          is_active: true,
-          created_at: '',
-          updated_at: '',
-        },
-        children: [],
-        description: 'Bo mạch chủ',
-        slug: 'mainboard',
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-      {
-        id: 13,
-        name: 'RAM',
-        parent: {
-          id: 1,
-          name: 'Linh kiện PC',
-          parent: null,
-          children: [],
-          description: '',
-          slug: 'linh-kien-pc',
-          is_active: true,
-          created_at: '',
-          updated_at: '',
-        },
-        children: [],
-        description: 'Bộ nhớ RAM',
-        slug: 'ram',
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-      {
-        id: 14,
-        name: 'VGA',
-        parent: {
-          id: 1,
-          name: 'Linh kiện PC',
-          parent: null,
-          children: [],
-          description: '',
-          slug: 'linh-kien-pc',
-          is_active: true,
-          created_at: '',
-          updated_at: '',
-        },
-        children: [],
-        description: 'Card đồ họa',
-        slug: 'vga',
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-    ],
-    description: 'Các linh kiện máy tính',
-    slug: 'linh-kien-pc',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-  },
-  {
-    id: 2,
-    name: 'Laptop',
-    parent: null,
-    children: [
-      {
-        id: 21,
-        name: 'Gaming',
-        parent: {
-          id: 2,
-          name: 'Laptop',
-          parent: null,
-          children: [],
-          description: '',
-          slug: 'laptop',
-          is_active: true,
-          created_at: '',
-          updated_at: '',
-        },
-        children: [],
-        description: 'Laptop Gaming',
-        slug: 'laptop-gaming',
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-      {
-        id: 22,
-        name: 'Văn phòng',
-        parent: {
-          id: 2,
-          name: 'Laptop',
-          parent: null,
-          children: [],
-          description: '',
-          slug: 'laptop',
-          is_active: true,
-          created_at: '',
-          updated_at: '',
-        },
-        children: [],
-        description: 'Laptop Văn phòng',
-        slug: 'laptop-van-phong',
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-    ],
-    description: 'Máy tính xách tay',
-    slug: 'laptop',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-  },
-  {
-    id: 3,
-    name: 'Màn hình',
-    parent: null,
-    children: [],
-    description: 'Màn hình máy tính',
-    slug: 'man-hinh',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-  },
-  {
-    id: 4,
-    name: 'Phụ kiện',
-    parent: null,
-    children: [
-      {
-        id: 41,
-        name: 'Bàn phím',
-        parent: {
-          id: 4,
-          name: 'Phụ kiện',
-          parent: null,
-          children: [],
-          description: '',
-          slug: 'phu-kien',
-          is_active: true,
-          created_at: '',
-          updated_at: '',
-        },
-        children: [],
-        description: 'Bàn phím',
-        slug: 'ban-phim',
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-      {
-        id: 42,
-        name: 'Chuột',
-        parent: {
-          id: 4,
-          name: 'Phụ kiện',
-          parent: null,
-          children: [],
-          description: '',
-          slug: 'phu-kien',
-          is_active: true,
-          created_at: '',
-          updated_at: '',
-        },
-        children: [],
-        description: 'Chuột',
-        slug: 'chuot',
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-      {
-        id: 43,
-        name: 'Tai nghe',
-        parent: {
-          id: 4,
-          name: 'Phụ kiện',
-          parent: null,
-          children: [],
-          description: '',
-          slug: 'phu-kien',
-          is_active: true,
-          created_at: '',
-          updated_at: '',
-        },
-        children: [],
-        description: 'Tai nghe',
-        slug: 'tai-nghe',
-        is_active: true,
-        created_at: '',
-        updated_at: '',
-      },
-    ],
-    description: 'Phụ kiện máy tính',
-    slug: 'phu-kien',
-    is_active: true,
-    created_at: '',
-    updated_at: '',
-  },
-];
+import { getActiveCategories } from '@/services/modules/category.service';
 
 export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -313,6 +31,25 @@ export function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   // Giả lập số lượng sản phẩm trong giỏ hàng
   const cartItemCount = 3;
+  // State để lưu trữ danh mục từ API
+  const [categories, setCategories] = useState<CategoryRes[]>([]);
+
+  // Lấy danh mục từ API khi component được mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const categoriesData = await getActiveCategories({
+          is_active: true,
+          size: 1000,
+        });
+        setCategories(categoriesData.categories || []);
+      } catch (error) {
+        console.error('Lỗi khi lấy danh mục:', error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   return (
     <header className='sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60'>
@@ -331,7 +68,7 @@ export function Header() {
             <div className='mt-6 border-t pt-6'>
               <SheetClose asChild>
                 <Link
-                  href='/pc-builder'
+                  href='/builder'
                   className='flex items-center px-2 py-1.5 text-lg font-medium text-primary'
                 >
                   PC Builder
@@ -350,7 +87,7 @@ export function Header() {
         <div className='hidden md:flex items-center gap-6 text-sm'>
           <CategoryDropdown categories={categories} />
           <Link
-            href='/pc-builder'
+            href='/builder'
             className='transition-colors hover:text-primary font-medium'
           >
             PC Builder
@@ -435,10 +172,10 @@ export function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align='end'>
                 <DropdownMenuItem asChild>
-                  <Link href='/login'>Đăng nhập</Link>
+                  <Link href='/auth/sign-in'>Đăng nhập</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href='/register'>Đăng ký</Link>
+                  <Link href='/auth/sign-up'>Đăng ký</Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -62,6 +62,16 @@ export class CategoryController {
     return this.categoryService.findById(id);
   }
 
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get category by slug' })
+  @ApiResponse({
+    status: 200,
+    type: CategoryRes,
+  })
+  async findBySlug(@Param('slug') slug: string): Promise<CategoryRes> {
+    return this.categoryService.findBySlug(slug);
+  }
+
   @Put('update')
   @ApiOperation({ summary: 'Update category' })
   @ApiResponse({
