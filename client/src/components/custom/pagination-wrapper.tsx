@@ -24,7 +24,6 @@ export function PaginationWrapper({
 
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
 
-  // Hiển thị tối đa 5 trang, ưu tiên trang hiện tại ở giữa
   const getVisiblePages = () => {
     const maxVisiblePages = 5;
     if (totalPages <= maxVisiblePages) return pages;

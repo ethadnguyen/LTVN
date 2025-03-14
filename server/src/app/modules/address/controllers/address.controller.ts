@@ -7,6 +7,8 @@ import {
   Put,
   Param,
   HttpCode,
+  Delete,
+  Headers,
 } from '@nestjs/common';
 import { AddressService } from '../services/address.service';
 import { ApiTags, ApiResponse } from '@nestjs/swagger';
@@ -118,5 +120,14 @@ export class AddressController {
       ward,
       keyword,
     );
+  }
+
+  @Delete(':id')
+  @ApiResponse({
+    status: 200,
+    description: 'Delete address',
+  })
+  async deleteAddress(@Param('id') id: number) {
+    return this.addressService.deleteAddress(id);
   }
 }

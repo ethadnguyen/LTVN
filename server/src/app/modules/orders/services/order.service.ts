@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CreateOrderInput } from './types/create-order.input';
 import { OrderRepository } from '../repositories/order.repositories';
 import { UpdateOrderInput } from './types/update-order.input';
@@ -10,6 +14,7 @@ import { AddressService } from '../../address/services/address.service';
 import { GetAllOrderInput } from './types/get.all.order.input';
 import { OrderStatus } from '../enums/order-status.enum';
 import { PromotionService } from '../../promotions/services/promotion.service';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class OrderService {
@@ -17,7 +22,22 @@ export class OrderService {
     private readonly orderRepository: OrderRepository,
     private readonly addressService: AddressService,
     private readonly promotionService: PromotionService,
+    private readonly jwtService: JwtService,
   ) {}
+
+  getUserIdFromToken(authorization: string): number {
+    try {
+      if (!authorization) {
+        throw new UnauthorizedException('No token provided');
+      }
+
+      const token = authorization.split(' ')[1];
+      const decodedToken = this.jwtService.decode(token);
+      return decodedToken.user_id;
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token');
+    }
+  }
 
   async createOrder(input: CreateOrderInput) {
     // Xử lý address
@@ -54,7 +74,7 @@ export class OrderService {
       const discountResult = await this.promotionService.calculateDiscount(
         input.promotion_id,
         productItems,
-        true, // Tăng số lần sử dụng khuyến mãi
+        true,
       );
 
       if (discountResult.isValid) {
@@ -69,10 +89,15 @@ export class OrderService {
     order.total_price = finalPrice;
     order.original_price = input.total_price;
     order.discount_amount = discountAmount;
+    order.amount = orderItems.reduce((sum, item) => sum + item.quantity, 0);
     order.promotion_id = promotionId;
     order.phone = input.phone;
     order.status = input.status || OrderStatus.PENDING;
     order.address = address;
+
+    if (input.user_id) {
+      order.user_id = input.user_id;
+    }
 
     return this.orderRepository.create(order);
   }
@@ -88,6 +113,27 @@ export class OrderService {
       skip: (page - 1) * size,
       take: size,
     });
+
+    const totalPages = Math.ceil(total / size);
+
+    return {
+      total,
+      totalPages,
+      currentPage: page,
+      orders,
+    };
+  }
+
+  async getUserOrders(queryParams: GetAllOrderInput) {
+    const { page = 1, size = 10, user_id } = queryParams;
+
+    const [orders, total] = await this.orderRepository.findAll(
+      {
+        skip: (page - 1) * size,
+        take: size,
+      },
+      user_id,
+    );
 
     const totalPages = Math.ceil(total / size);
 

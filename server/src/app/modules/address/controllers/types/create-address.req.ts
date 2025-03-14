@@ -7,6 +7,22 @@ export class CreateAddressReq {
   place_id: string;
 
   @ApiProperty()
+  @IsString()
+  label: string;
+
+  @ApiProperty()
+  @IsString()
+  province: string;
+
+  @ApiProperty()
+  @IsString()
+  district: string;
+
+  @ApiProperty()
+  @IsString()
+  ward: string;
+
+  @ApiProperty()
   @IsNumber()
   user_id: number;
 
@@ -18,4 +34,9 @@ export class CreateAddressReq {
   @ApiProperty()
   @IsString()
   note: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  street?: string;
 }

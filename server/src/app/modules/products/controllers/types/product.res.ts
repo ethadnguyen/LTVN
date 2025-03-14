@@ -28,6 +28,15 @@ export class ProductRes {
   @ApiProperty()
   is_active: boolean;
 
+  @ApiProperty()
+  is_sale: boolean;
+
+  @ApiProperty()
+  sale_price: number;
+
+  @ApiProperty()
+  rating: number;
+
   @ApiProperty({ type: [CategoryRes] })
   categories: CategoryRes[];
 

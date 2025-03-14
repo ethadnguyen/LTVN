@@ -79,8 +79,9 @@ export default function PromotionDialog({
   const [categories, setCategories] = useState<CategoryRes[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'categories' | 'products'>(
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories'>(
     'categories'
   );
 
@@ -102,6 +103,60 @@ export default function PromotionDialog({
     },
   });
 
+  // Hàm trợ giúp để thêm tất cả sản phẩm từ một danh mục vào product_ids
+  const addProductsFromCategory = (categoryId: number) => {
+    // Tìm tất cả sản phẩm thuộc danh mục này
+    const productsInCategory = products.filter((product) =>
+      product.categories?.some((c) => Number(c.id) === categoryId)
+    );
+
+    if (productsInCategory.length > 0) {
+      // Lấy ID của tất cả sản phẩm trong danh mục
+      const productIdsInCategory = productsInCategory.map((p) => Number(p.id));
+
+      // Lấy danh sách product_ids hiện tại
+      const productIdsValue = form.getValues('product_ids');
+      const currentProductIds = productIdsValue ? [...productIdsValue] : [];
+
+      // Thêm các sản phẩm chưa có trong danh sách
+      const newProductIds = [...currentProductIds];
+      productIdsInCategory.forEach((id) => {
+        if (!newProductIds.some((existingId) => Number(existingId) === id)) {
+          newProductIds.push(id);
+        }
+      });
+
+      // Cập nhật giá trị product_ids
+      form.setValue('product_ids', newProductIds);
+    }
+  };
+
+  // Hàm trợ giúp để xóa tất cả sản phẩm từ một danh mục khỏi product_ids
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const removeProductsFromCategory = (categoryId: number) => {
+    // Tìm tất cả sản phẩm thuộc danh mục này
+    const productsInCategory = products.filter((product) =>
+      product.categories?.some((c) => Number(c.id) === categoryId)
+    );
+
+    if (productsInCategory.length > 0) {
+      // Lấy ID của tất cả sản phẩm trong danh mục
+      const productIdsInCategory = productsInCategory.map((p) => Number(p.id));
+
+      // Lấy danh sách product_ids hiện tại
+      const productIdsValue = form.getValues('product_ids');
+      const currentProductIds = productIdsValue ? [...productIdsValue] : [];
+
+      // Loại bỏ các sản phẩm thuộc danh mục này
+      const newProductIds = currentProductIds.filter(
+        (id) => !productIdsInCategory.includes(Number(id))
+      );
+
+      // Cập nhật giá trị product_ids
+      form.setValue('product_ids', newProductIds);
+    }
+  };
+
   useEffect(() => {
     if (open) {
       fetchProducts();
@@ -122,8 +177,8 @@ export default function PromotionDialog({
         usage_limit: promotion.usage_limit,
         minimum_order_amount: promotion.minimum_order_amount,
         maximum_discount_amount: promotion.maximum_discount_amount,
-        product_ids: promotion.products?.map((p) => p.id) || [],
-        category_ids: promotion.categories?.map((c) => c.id) || [],
+        product_ids: promotion.products?.map((p) => Number(p.id)) || [],
+        category_ids: promotion.categories?.map((c) => Number(c.id)) || [],
       });
     } else if (open) {
       form.reset({
@@ -229,10 +284,10 @@ export default function PromotionDialog({
         start_date: values.start_date.toISOString(),
         end_date: values.end_date.toISOString(),
         product_ids: Array.isArray(values.product_ids)
-          ? values.product_ids
+          ? values.product_ids.map((id) => Number(id))
           : [],
         category_ids: Array.isArray(values.category_ids)
-          ? values.category_ids
+          ? values.category_ids.map((id) => Number(id))
           : [],
       };
 
@@ -262,12 +317,15 @@ export default function PromotionDialog({
           onRefresh?.();
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting promotion:', error);
       let errorMessage = 'Có lỗi xảy ra, vui lòng thử lại';
 
-      if (error.response?.data?.message) {
-        const messages = error.response.data.message;
+      const errorResponse = error as {
+        response?: { data?: { message?: string | string[] } };
+      };
+      if (errorResponse.response?.data?.message) {
+        const messages = errorResponse.response.data.message;
         errorMessage = Array.isArray(messages) ? messages.join(', ') : messages;
       }
 
@@ -558,7 +616,7 @@ export default function PromotionDialog({
             <FormField
               control={form.control}
               name='product_ids'
-              render={({ field }) => (
+              render={({ field: productField }) => (
                 <FormItem>
                   <FormLabel>Sản phẩm và danh mục áp dụng</FormLabel>
                   <FormControl>
@@ -591,201 +649,267 @@ export default function PromotionDialog({
                           </button>
                         </div>
 
-                        <div className='p-2'>
-                          <Input
-                            placeholder='Tìm kiếm...'
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className='mb-2'
-                          />
-                        </div>
-
-                        <ScrollArea className='h-[300px] p-2'>
-                          {activeTab === 'categories' ? (
-                            <div className='space-y-2'>
-                              {Array.isArray(categories) &&
-                                categories
-                                  .filter((category) =>
-                                    category.name
-                                      .toLowerCase()
-                                      .includes(searchTerm.toLowerCase())
-                                  )
-                                  .map((category) => {
-                                    // Tìm tất cả sản phẩm thuộc danh mục này
-                                    const productsInCategory = Array.isArray(
-                                      products
-                                    )
-                                      ? products.filter((product) =>
-                                          product.categories?.some(
-                                            (c) => c.id === category.id
-                                          )
-                                        )
-                                      : [];
-
-                                    // Kiểm tra xem tất cả sản phẩm trong danh mục đã được chọn chưa
-                                    const productIdsInCategory =
-                                      productsInCategory.map((p) => p.id);
-                                    const allProductsInCategorySelected =
-                                      productIdsInCategory.length > 0 &&
-                                      productIdsInCategory.every((id) =>
-                                        field.value?.includes(id)
-                                      );
-
-                                    // Kiểm tra xem có sản phẩm nào trong danh mục được chọn không
-                                    const someProductsInCategorySelected =
-                                      productIdsInCategory.length > 0 &&
-                                      productIdsInCategory.some((id) =>
-                                        field.value?.includes(id)
-                                      );
-
-                                    return (
-                                      <div
-                                        key={category.id}
-                                        className='space-y-1'
-                                      >
-                                        <div className='flex items-center space-x-2 bg-muted/50 p-2 rounded'>
-                                          <Checkbox
-                                            id={`category-${category.id}`}
-                                            checked={
-                                              allProductsInCategorySelected
-                                            }
-                                            className={
-                                              someProductsInCategorySelected &&
-                                              !allProductsInCategorySelected
-                                                ? 'opacity-50'
-                                                : ''
-                                            }
-                                            onCheckedChange={(checked) => {
-                                              const currentValues =
-                                                field.value || [];
-                                              if (checked) {
-                                                // Thêm tất cả sản phẩm trong danh mục
-                                                const newProductIds = [
-                                                  ...currentValues,
-                                                ];
-                                                productIdsInCategory.forEach(
-                                                  (id) => {
-                                                    if (
-                                                      !newProductIds.includes(
-                                                        id
-                                                      )
-                                                    ) {
-                                                      newProductIds.push(id);
-                                                    }
-                                                  }
-                                                );
-                                                field.onChange(newProductIds);
-                                              } else {
-                                                // Loại bỏ tất cả sản phẩm trong danh mục
-                                                field.onChange(
-                                                  currentValues.filter(
-                                                    (id) =>
-                                                      !productIdsInCategory.includes(
-                                                        id
-                                                      )
-                                                  )
-                                                );
-                                              }
-                                            }}
-                                          />
-                                          <label
-                                            htmlFor={`category-${category.id}`}
-                                            className='text-sm font-medium leading-none'
-                                          >
-                                            {category.name} (
-                                            {productsInCategory.length} sản
-                                            phẩm)
-                                          </label>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                              {Array.isArray(categories) &&
-                                categories.filter((category) =>
-                                  category.name
-                                    .toLowerCase()
-                                    .includes(searchTerm.toLowerCase())
-                                ).length === 0 && (
-                                  <p className='text-sm text-muted-foreground'>
-                                    Không tìm thấy danh mục nào
-                                  </p>
-                                )}
+                        {activeTab === 'products' ? (
+                          <>
+                            <div className='p-2'>
+                              <Input
+                                placeholder='Tìm kiếm sản phẩm...'
+                                value={productSearchTerm}
+                                onChange={(e) =>
+                                  setProductSearchTerm(e.target.value)
+                                }
+                                className='mb-2'
+                              />
                             </div>
-                          ) : (
-                            <div className='space-y-2'>
-                              {Array.isArray(products) &&
-                                products
-                                  .filter((product) =>
+
+                            <ScrollArea className='h-[300px] p-2'>
+                              <div className='space-y-2'>
+                                {Array.isArray(products) &&
+                                  products
+                                    .filter((product) =>
+                                      product.name
+                                        .toLowerCase()
+                                        .includes(
+                                          productSearchTerm.toLowerCase()
+                                        )
+                                    )
+                                    .map((product) => (
+                                      <div
+                                        key={product.id}
+                                        className='flex items-center space-x-2 hover:bg-muted/50 p-2 rounded'
+                                      >
+                                        <Checkbox
+                                          id={`product-${product.id}`}
+                                          checked={productField.value?.some(
+                                            (id) =>
+                                              Number(id) === Number(product.id)
+                                          )}
+                                          onCheckedChange={(checked) => {
+                                            const currentValues = Array.isArray(
+                                              productField.value
+                                            )
+                                              ? productField.value
+                                              : [];
+
+                                            const productId = Number(
+                                              product.id
+                                            );
+
+                                            if (checked) {
+                                              if (
+                                                !currentValues.includes(
+                                                  productId
+                                                )
+                                              ) {
+                                                productField.onChange([
+                                                  ...currentValues,
+                                                  productId,
+                                                ]);
+                                              }
+                                            } else {
+                                              productField.onChange(
+                                                currentValues.filter(
+                                                  (id) => id !== productId
+                                                )
+                                              );
+                                            }
+                                          }}
+                                        />
+                                        <label
+                                          htmlFor={`product-${product.id}`}
+                                          className='text-sm font-medium leading-none flex-1'
+                                        >
+                                          {product.name}
+                                        </label>
+                                        <span className='text-xs text-muted-foreground'>
+                                          {categories.find((c) =>
+                                            product.categories?.some(
+                                              (p) => p.id === c.id
+                                            )
+                                          )?.name || 'Không có danh mục'}
+                                        </span>
+                                      </div>
+                                    ))}
+                                {Array.isArray(products) &&
+                                  products.filter((product) =>
                                     product.name
                                       .toLowerCase()
-                                      .includes(searchTerm.toLowerCase())
-                                  )
-                                  .map((product) => (
-                                    <div
-                                      key={product.id}
-                                      className='flex items-center space-x-2 hover:bg-muted/50 p-2 rounded'
-                                    >
-                                      <Checkbox
-                                        id={`product-${product.id}`}
-                                        checked={field.value?.includes(
-                                          product.id
-                                        )}
-                                        onCheckedChange={(checked) => {
-                                          const currentValues =
-                                            field.value || [];
-                                          if (checked) {
-                                            field.onChange([
-                                              ...currentValues,
-                                              product.id,
-                                            ]);
-                                          } else {
-                                            field.onChange(
-                                              currentValues.filter(
-                                                (id) => id !== product.id
-                                              )
-                                            );
-                                          }
-                                        }}
-                                      />
-                                      <label
-                                        htmlFor={`product-${product.id}`}
-                                        className='text-sm font-medium leading-none flex-1'
-                                      >
-                                        {product.name}
-                                      </label>
-                                      <span className='text-xs text-muted-foreground'>
-                                        {categories.find((c) =>
-                                          product.categories?.some(
-                                            (p) => p.id === c.id
-                                          )
-                                        )?.name || 'Không có danh mục'}
-                                      </span>
-                                    </div>
-                                  ))}
-                              {Array.isArray(products) &&
-                                products.filter((product) =>
-                                  product.name
-                                    .toLowerCase()
-                                    .includes(searchTerm.toLowerCase())
-                                ).length === 0 && (
-                                  <p className='text-sm text-muted-foreground'>
-                                    Không tìm thấy sản phẩm nào
-                                  </p>
-                                )}
-                            </div>
-                          )}
-                        </ScrollArea>
+                                      .includes(productSearchTerm.toLowerCase())
+                                  ).length === 0 && (
+                                    <p className='text-sm text-muted-foreground'>
+                                      Không tìm thấy sản phẩm nào
+                                    </p>
+                                  )}
+                              </div>
+                            </ScrollArea>
 
-                        <div className='p-2 border-t'>
-                          <div className='text-sm text-muted-foreground'>
-                            Đã chọn: {field.value?.length || 0} sản phẩm
-                          </div>
-                        </div>
+                            <div className='p-2 border-t'>
+                              <div className='text-sm text-muted-foreground'>
+                                Đã chọn: {productField.value?.length || 0} sản
+                                phẩm
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <FormField
+                            control={form.control}
+                            name='category_ids'
+                            render={({ field: categoryField }) => (
+                              <>
+                                <div className='p-2'>
+                                  <Input
+                                    placeholder='Tìm kiếm danh mục...'
+                                    value={categorySearchTerm}
+                                    onChange={(e) =>
+                                      setCategorySearchTerm(e.target.value)
+                                    }
+                                    className='mb-2'
+                                  />
+                                </div>
+
+                                <ScrollArea className='h-[300px] p-2'>
+                                  <div className='space-y-2'>
+                                    {Array.isArray(categories) &&
+                                      categories
+                                        .filter((category) =>
+                                          category.name
+                                            .toLowerCase()
+                                            .includes(
+                                              categorySearchTerm.toLowerCase()
+                                            )
+                                        )
+                                        .map((category) => (
+                                          <div
+                                            key={category.id}
+                                            className='flex items-center space-x-2 bg-muted/50 p-2 rounded'
+                                          >
+                                            <Checkbox
+                                              id={`category-${category.id}`}
+                                              checked={categoryField.value?.some(
+                                                (id) =>
+                                                  Number(id) ===
+                                                  Number(category.id)
+                                              )}
+                                              onCheckedChange={(checked) => {
+                                                const currentValues =
+                                                  Array.isArray(
+                                                    categoryField.value
+                                                  )
+                                                    ? categoryField.value
+                                                    : [];
+
+                                                const categoryId = Number(
+                                                  category.id
+                                                );
+
+                                                if (checked) {
+                                                  if (
+                                                    !currentValues.includes(
+                                                      categoryId
+                                                    )
+                                                  ) {
+                                                    categoryField.onChange([
+                                                      ...currentValues,
+                                                      categoryId,
+                                                    ]);
+
+                                                    // Thêm tất cả sản phẩm thuộc danh mục này vào product_ids
+                                                    addProductsFromCategory(
+                                                      categoryId
+                                                    );
+                                                  }
+                                                } else {
+                                                  categoryField.onChange(
+                                                    currentValues.filter(
+                                                      (id) => id !== categoryId
+                                                    )
+                                                  );
+
+                                                  // Tùy chọn: Bỏ chọn các sản phẩm thuộc danh mục này
+                                                  // Bỏ comment dòng dưới nếu muốn bỏ chọn sản phẩm khi bỏ chọn danh mục
+                                                  const productsInCategory =
+                                                    products.filter((product) =>
+                                                      product.categories?.some(
+                                                        (c) =>
+                                                          Number(c.id) ===
+                                                          categoryId
+                                                      )
+                                                    );
+
+                                                  if (
+                                                    productsInCategory.length >
+                                                    0
+                                                  ) {
+                                                    const productIdsInCategory =
+                                                      productsInCategory.map(
+                                                        (p) => Number(p.id)
+                                                      );
+                                                    const currentProductIds =
+                                                      Array.isArray(
+                                                        form.getValues(
+                                                          'product_ids'
+                                                        )
+                                                      )
+                                                        ? form.getValues(
+                                                            'product_ids'
+                                                          )
+                                                        : [];
+
+                                                    // Loại bỏ các sản phẩm thuộc danh mục này
+                                                    const newProductIds =
+                                                      currentProductIds?.filter(
+                                                        (id) =>
+                                                          !productIdsInCategory.includes(
+                                                            Number(id)
+                                                          )
+                                                      );
+
+                                                    form.setValue(
+                                                      'product_ids',
+                                                      newProductIds
+                                                    );
+                                                  }
+                                                }
+                                              }}
+                                            />
+                                            <label
+                                              htmlFor={`category-${category.id}`}
+                                              className='text-sm font-medium leading-none'
+                                            >
+                                              {category.name}
+                                            </label>
+                                          </div>
+                                        ))}
+                                    {Array.isArray(categories) &&
+                                      categories.filter((category) =>
+                                        category.name
+                                          .toLowerCase()
+                                          .includes(
+                                            categorySearchTerm.toLowerCase()
+                                          )
+                                      ).length === 0 && (
+                                        <p className='text-sm text-muted-foreground'>
+                                          Không tìm thấy danh mục nào
+                                        </p>
+                                      )}
+                                  </div>
+                                </ScrollArea>
+
+                                <div className='p-2 border-t'>
+                                  <div className='text-sm text-muted-foreground'>
+                                    Đã chọn: {categoryField.value?.length || 0}{' '}
+                                    danh mục
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          />
+                        )}
                       </div>
                     )}
                   </FormControl>
                   <FormDescription>
-                    Để trống nếu áp dụng cho tất cả sản phẩm
+                    Để trống nếu áp dụng cho tất cả sản phẩm và danh mục
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

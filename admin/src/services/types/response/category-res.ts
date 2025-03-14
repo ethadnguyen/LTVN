@@ -6,6 +6,8 @@ export interface CategoryRes {
   description: string;
   icon?: string;
   is_active: boolean;
+  is_sale: boolean;
+  products_count: number;
   created_at: string;
   updated_at: string;
   children: CategoryRes[];

@@ -9,6 +9,7 @@ export interface CategoryRes {
   slug: string;
   is_active: boolean;
   icon?: React.ElementType;
+  is_sale: boolean;
   products_count: number;
   created_at: string;
   updated_at: string;

@@ -8,6 +8,7 @@ import { OrderRepository } from './repositories/order.repositories';
 import { AddressModule } from '../address/address.module';
 import { ProductModule } from '../products/products.module';
 import { PromotionModule } from '../promotions/promotion.module';
+import { JwtService } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { PromotionModule } from '../promotions/promotion.module';
     PromotionModule,
   ],
   controllers: [OrderController],
-  providers: [OrderService, OrderRepository],
+  providers: [OrderService, OrderRepository, JwtService],
   exports: [OrderService, OrderRepository],
 })
 export class OrderModule {}

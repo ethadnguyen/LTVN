@@ -14,6 +14,21 @@ export class UpdateAddressReq {
   @ApiProperty()
   @IsString()
   @IsOptional()
+  label?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  province?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  district?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
   note?: string;
 
   @ApiProperty()

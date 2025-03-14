@@ -9,11 +9,12 @@ const protectedRoutes = [
   '/profile',
   '/orders',
   '/saved-configs',
-  '/pc-builder/save', // Thêm route lưu cấu hình PC
+  '/pc-builder/save',
+  '/profile/address',
 ];
 
 // Các route không cho phép truy cập khi đã đăng nhập
-const authRoutes = ['/auth/sign-in', '/auth/register'];
+const authRoutes = ['/auth/sign-in', '/auth/sign-up'];
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get(accessToken);

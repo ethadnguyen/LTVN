@@ -36,15 +36,22 @@ export class OrderRepository {
     });
   }
 
-  async findAll(paginationOptions: {
-    skip: number;
-    take: number;
-  }): Promise<[Order[], number]> {
+  async findAll(
+    paginationOptions: {
+      skip: number;
+      take: number;
+    },
+    user_id?: number,
+  ): Promise<[Order[], number]> {
     const queryBuilder = this.orderRepository.createQueryBuilder('order');
 
     queryBuilder.leftJoinAndSelect('order.order_items', 'order_items');
     queryBuilder.leftJoinAndSelect('order_items.product', 'product');
     queryBuilder.leftJoinAndSelect('order.address', 'address');
+
+    if (user_id) {
+      queryBuilder.where('order.user_id = :user_id', { user_id });
+    }
 
     queryBuilder.orderBy('order.created_at', 'DESC');
     queryBuilder.skip(paginationOptions.skip);

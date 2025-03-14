@@ -24,15 +24,19 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { CategoryRes } from '@/services/types/response/category_types/category.res';
 import { getActiveCategories } from '@/services/modules/category.service';
+import { useCartStore } from '@/store/useCartStore';
+import { useUserStore } from '@/store/useUserStore';
 
 export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  // Giả lập trạng thái đăng nhập - trong thực tế sẽ sử dụng context hoặc state management
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  // Giả lập số lượng sản phẩm trong giỏ hàng
-  const cartItemCount = 3;
   // State để lưu trữ danh mục từ API
   const [categories, setCategories] = useState<CategoryRes[]>([]);
+
+  // Sử dụng useUserStore để kiểm tra trạng thái đăng nhập
+  const { isAuthenticated, logout } = useUserStore();
+
+  // Sử dụng useCartStore để lấy thông tin giỏ hàng
+  const { cart, fetchCart } = useCartStore();
 
   // Lấy danh mục từ API khi component được mount
   useEffect(() => {
@@ -50,6 +54,21 @@ export function Header() {
 
     fetchCategories();
   }, []);
+
+  // Lấy thông tin giỏ hàng từ API khi đăng nhập hoặc khi component được mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCart();
+    }
+  }, [isAuthenticated, fetchCart]);
+
+  // Số lượng sản phẩm trong giỏ hàng
+  const cartItemCount = cart?.item_count || 0;
+
+  // Xử lý đăng xuất
+  const handleLogout = () => {
+    logout();
+  };
 
   return (
     <header className='sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60'>
@@ -140,7 +159,7 @@ export function Header() {
             </Button>
           </Link>
 
-          {isLoggedIn ? (
+          {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant='ghost' size='icon'>
@@ -158,7 +177,7 @@ export function Header() {
                   <Link href='/wishlist'>Danh sách yêu thích</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setIsLoggedIn(false)}>
+                <DropdownMenuItem onClick={handleLogout}>
                   Đăng xuất
                 </DropdownMenuItem>
               </DropdownMenuContent>

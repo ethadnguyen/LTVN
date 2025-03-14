@@ -14,7 +14,14 @@ export class CategoryRes {
   description: string;
 
   @ApiProperty()
+  products_count: number;
+
+  @ApiProperty()
+  is_sale: boolean;
+
+  @ApiProperty()
   icon: string;
+
   @ApiProperty()
   is_active: boolean;
 

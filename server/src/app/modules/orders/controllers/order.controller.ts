@@ -2,10 +2,12 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   Post,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { OrderService } from '../services/order.service';
@@ -52,7 +54,19 @@ export class OrderController {
     description: 'Create a new order',
     type: OrderRes,
   })
-  async createOrder(@Body() body: CreateOrderReq) {
+  async createOrder(
+    @Headers('authorization') authorization: string,
+    @Body() body: CreateOrderReq,
+  ) {
+    try {
+      const userId = this.orderService.getUserIdFromToken(authorization);
+      if (userId) {
+        body.user_id = userId;
+      }
+    } catch (error) {
+      console.log('Creating order without user_id');
+    }
+
     return this.orderService.createOrder(body);
   }
 }

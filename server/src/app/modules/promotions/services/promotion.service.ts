@@ -11,6 +11,7 @@ import { ErrorMessage } from 'src/common/enum/error.message.enum';
 import { CreatePromotionInput } from './types/create-promotion.input';
 import { UpdatePromotionInput } from './types/update-promotion.input';
 import { Category } from '../../categories/entities/categories.entity';
+import { ProductRes } from '../../products/controllers/types/product.res';
 
 @Injectable()
 export class PromotionService {
@@ -62,6 +63,7 @@ export class PromotionService {
   }
 
   async createPromotion(input: CreatePromotionInput) {
+    console.log('promotion input', input);
     let promotion = new Promotion();
     promotion.name = input.name;
     promotion.description = input.description;
@@ -90,6 +92,13 @@ export class PromotionService {
       );
       promotion.categories = categories;
 
+      // Cập nhật trạng thái is_sale cho các danh mục
+      const isActive = this.isPromotionActive(promotion);
+      for (const category of categories) {
+        category.is_sale = isActive;
+        await this.categoryRepository.update(category);
+      }
+
       // Nếu có danh mục, lấy tất cả sản phẩm thuộc danh mục đó và cập nhật
       if (categories.length > 0) {
         const productsInCategories =
@@ -111,6 +120,7 @@ export class PromotionService {
   }
 
   async updatePromotion(input: UpdatePromotionInput) {
+    console.log('promotion input', input);
     const promotion = await this.promotionRepository.findById(input.id);
     if (!promotion) {
       throw new BadRequestException(ErrorMessage.PROMOTION_NOT_FOUND);
@@ -146,12 +156,17 @@ export class PromotionService {
         input.category_ids,
       );
       promotion.categories = newCategories;
+
+      // Cập nhật trạng thái is_sale cho các danh mục mới
+      const isActive = this.isPromotionActive(promotion);
+      for (const category of newCategories) {
+        category.is_sale = isActive;
+        await this.categoryRepository.update(category);
+      }
     }
 
-    // Sử dụng save thay vì update để cập nhật cả mối quan hệ
     const updatedPromotion = await this.promotionRepository.save(promotion);
 
-    // Reset trạng thái giảm giá cho các sản phẩm cũ không còn trong promotion
     await this.resetProductSaleStatus(
       oldProducts,
       oldCategories,
@@ -238,8 +253,14 @@ export class PromotionService {
       // Reset trạng thái giảm giá cho tất cả sản phẩm trong promotion
       const products = [...(promotion.products || [])];
 
-      // Lấy tất cả sản phẩm thuộc danh mục trong promotion
+      // Reset trạng thái giảm giá cho các danh mục trong promotion
       if (promotion.categories && promotion.categories.length > 0) {
+        for (const category of promotion.categories) {
+          category.is_sale = false;
+          await this.categoryRepository.update(category);
+        }
+
+        // Lấy tất cả sản phẩm thuộc danh mục trong promotion
         const productsInCategories =
           await this.productRepository.findByCategories(
             promotion.categories.map((cat) => cat.id),
@@ -251,7 +272,7 @@ export class PromotionService {
         products.push(...uniqueProducts);
       }
 
-      // Reset trạng thái giảm giá
+      // Reset trạng thái giảm giá cho sản phẩm
       for (const product of products) {
         product.is_sale = false;
         product.sale_price = 0;
@@ -269,6 +290,15 @@ export class PromotionService {
       now >= new Date(promotion.start_date) &&
       now <= new Date(promotion.end_date) &&
       (!promotion.usage_limit || promotion.used_count < promotion.usage_limit)
+    );
+  }
+
+  private isPromotionActive(promotion: Promotion) {
+    const now = new Date();
+    return (
+      promotion.is_active &&
+      now >= new Date(promotion.start_date) &&
+      now <= new Date(promotion.end_date)
     );
   }
 
@@ -321,17 +351,23 @@ export class PromotionService {
     products: Product[],
     promotion: Promotion,
   ): Promise<void> {
-    if (!products || products.length === 0 || !promotion.is_active) {
+    if (!products || products.length === 0) {
       return;
     }
 
-    const now = new Date();
-    // Chỉ cập nhật nếu promotion đang hoạt động và trong thời gian hiệu lực
-    if (
-      promotion.is_active &&
-      now >= new Date(promotion.start_date) &&
-      now <= new Date(promotion.end_date)
-    ) {
+    const isPromotionActive = this.isPromotionActive(promotion);
+
+    // Nếu khuyến mãi không hoạt động, reset trạng thái giảm giá
+    if (!isPromotionActive) {
+      for (const product of products) {
+        product.is_sale = false;
+        product.sale_price = 0;
+        await this.productRepository.update(product);
+      }
+      return;
+    }
+
+    if (isPromotionActive) {
       for (const product of products) {
         // Tính toán giá sau khi giảm
         let salePrice = product.price;
@@ -386,6 +422,12 @@ export class PromotionService {
       await this.productRepository.update(product);
     }
 
+    // Reset trạng thái giảm giá cho các danh mục bị loại
+    for (const category of removedCategories) {
+      category.is_sale = false;
+      await this.categoryRepository.update(category);
+    }
+
     // Reset trạng thái giảm giá cho các sản phẩm thuộc danh mục bị loại
     if (removedCategories.length > 0) {
       const productsInRemovedCategories =
@@ -427,6 +469,14 @@ export class PromotionService {
       promotion.used_count >= promotion.usage_limit
     ) {
       promotion.is_active = false;
+
+      // Cập nhật trạng thái is_sale của các danh mục khi khuyến mãi hết hiệu lực
+      if (promotion.categories && promotion.categories.length > 0) {
+        for (const category of promotion.categories) {
+          category.is_sale = false;
+          await this.categoryRepository.update(category);
+        }
+      }
     }
 
     // Lưu lại thay đổi

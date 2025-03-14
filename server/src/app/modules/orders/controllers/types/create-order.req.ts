@@ -52,4 +52,10 @@ export class CreateOrderReq {
   @IsNumber()
   @IsOptional()
   promotion_id?: number;
+
+  @ApiProperty({
+    description: 'ID của người dùng tạo đơn hàng',
+  })
+  @IsNumber()
+  user_id: number;
 }

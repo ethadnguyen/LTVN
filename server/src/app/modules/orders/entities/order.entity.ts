@@ -43,6 +43,9 @@ export class Order {
   @ManyToOne(() => Address)
   address: Address;
 
+  @Column()
+  user_id: number;
+
   @ManyToOne(() => Promotion, { nullable: true })
   @JoinColumn({ name: 'promotion_id' })
   promotion: Promotion;

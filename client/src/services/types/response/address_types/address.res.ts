@@ -1,23 +1,27 @@
-export interface Province {
-  code: string;
-  name: string;
+import { PaginationRes } from '../pagination_types/pagination-res';
+
+export interface AddressResponse {
+  id: number;
+  label: string;
+  street: string;
+  note: string;
+  province: string;
+  district: string;
+  ward: string;
+  place_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface District {
-  code: string;
-  name: string;
-  provinceCode: string;
+export interface AddressListResponse extends PaginationRes {
+  addresses: AddressResponse[];
 }
 
-export interface Ward {
-  code: string;
-  name: string;
-  districtCode: string;
-}
-
-export interface VietnameseAddress {
-  province: Province | null;
-  district: District | null;
-  ward: Ward | null;
-  streetAddress: string;
+export interface PlacePrediction {
+  place_id: string;
+  description: string;
+  structured_formatting: {
+    main_text: string;
+    secondary_text: string;
+  };
 }

@@ -19,6 +19,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { signInSchema } from './sign-in.schema';
 import type { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
+import { useUserStore } from '@/store/useUserStore';
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
@@ -28,6 +29,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { login } = useUserStore();
 
   const form = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -41,11 +43,8 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // Giả lập đăng nhập
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Sử dụng values để đăng nhập (trong trường hợp thực tế)
-      console.log('Đăng nhập với:', values.email, values.password);
+      // Thực hiện đăng nhập thông qua useUserStore
+      await login(values.email, values.password);
 
       toast({
         title: 'Đăng nhập thành công',
@@ -53,7 +52,8 @@ export default function LoginPage() {
       });
 
       router.push('/');
-    } catch (error: unknown) {
+    } catch (error) {
+      console.error('Lỗi đăng nhập:', error);
       toast({
         title: 'Đăng nhập thất bại',
         description: 'Email hoặc mật khẩu không chính xác.',

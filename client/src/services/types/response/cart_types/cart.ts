@@ -13,6 +13,7 @@ export interface CartItemRes {
     id: number;
     name: string;
     price: number;
+    slug: string;
     images: string[];
   };
 }

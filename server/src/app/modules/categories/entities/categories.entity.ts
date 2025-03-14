@@ -48,6 +48,12 @@ export class Category {
   is_active: boolean;
 
   @Column({
+    type: 'boolean',
+    default: false,
+  })
+  is_sale: boolean;
+
+  @Column({
     type: 'timestamp',
     default: () => 'CURRENT_TIMESTAMP',
   })

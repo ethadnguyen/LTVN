@@ -1,7 +1,7 @@
 export interface UserRes {
-  id: number;
+  user_id: number;
   email: string;
-  name: string;
+  user_name: string;
   phone: string;
   role: 'admin' | 'user';
   is_active: boolean;

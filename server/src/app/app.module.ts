@@ -21,6 +21,7 @@ import { CloudinaryModule } from 'src/common/services/upload/cloudinary.module';
 import { CartModule } from './modules/cart/cart.module';
 import { CompatibilityModule } from './modules/compatibility/compatibility.module';
 import { BrandModule } from './modules/brand/brand.module';
+import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { BrandModule } from './modules/brand/brand.module';
     ReviewModule,
     PromotionModule,
     CartModule,
+    PaymentModule,
     CloudinaryModule,
   ],
   controllers: [AppController],

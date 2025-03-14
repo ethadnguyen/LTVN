@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { AddressRepository } from '../repositories/address.repositories';
 import { GoongService } from './goong.service';
 import { Address } from '../entities/address.entity';
@@ -8,6 +8,7 @@ import { LabelType } from '../enums/label-type.enum';
 import { UpdateAddressInput } from './types/update-address.input';
 import { UserRepository } from '../../users/repositories/user.repositories';
 import { OrderRepository } from '../../orders/repositories/order.repositories';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AddressService {
@@ -16,7 +17,22 @@ export class AddressService {
     private readonly goongService: GoongService,
     private readonly userRepository: UserRepository,
     private readonly orderRepository: OrderRepository,
+    private readonly jwtService: JwtService,
   ) {}
+
+  getUserIdFromToken(authorization: string): number {
+    try {
+      if (!authorization) {
+        throw new UnauthorizedException('Không có token');
+      }
+
+      const token = authorization.split(' ')[1];
+      const decodedToken = this.jwtService.decode(token);
+      return decodedToken.user_id;
+    } catch (error) {
+      throw new UnauthorizedException('Token không hợp lệ');
+    }
+  }
 
   async getAllAddresses(queryParams: GetAllAddressInput) {
     const { page = 1, size = 10, user_id, order_id } = queryParams;
@@ -48,12 +64,12 @@ export class AddressService {
     const placeDetail = await this.goongService.getPlaceDetail(input.place_id);
 
     const address = new Address();
-    address.label = placeDetail.name || LabelType.HOME;
-    address.street = placeDetail.street;
-    address.note = input.note;
-    address.province = placeDetail.province;
-    address.district = placeDetail.district;
-    address.ward = placeDetail.ward;
+    address.label = input.label || LabelType.HOME;
+    address.street = placeDetail.street || input.street || '';
+    address.note = input.note || '';
+    address.province = input.province || '';
+    address.district = input.district || '';
+    address.ward = input.ward || '';
     address.place_id = input.place_id;
     address.user = await this.userRepository.findById(input.user_id);
 
@@ -68,11 +84,11 @@ export class AddressService {
     const placeDetail = await this.goongService.getPlaceDetail(input.place_id);
 
     return this.addressRepository.update(input.id, {
-      label: placeDetail.name,
-      street: placeDetail.street,
-      province: placeDetail.province,
-      district: placeDetail.district,
-      ward: placeDetail.ward,
+      label: input.label || '',
+      street: placeDetail.street || input.street || '',
+      province: input.province || '',
+      district: input.district || '',
+      ward: input.ward || '',
       place_id: input.place_id,
       note: input.note,
     });
@@ -98,5 +114,9 @@ export class AddressService {
   ) {
     const searchQuery = `${keyword}, ${ward}, ${district}, ${province}`;
     return this.goongService.searchPlaces(searchQuery);
+  }
+
+  async deleteAddress(id: number) {
+    return this.addressRepository.delete(id);
   }
 }

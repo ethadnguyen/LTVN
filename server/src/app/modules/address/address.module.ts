@@ -12,6 +12,7 @@ import { OrderRepository } from '../orders/repositories/order.repositories';
 import { User } from '../users/entities/user.entity';
 import { Order } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
+import { JwtService } from '@nestjs/jwt';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { OrderItem } from '../orders/entities/order-item.entity';
     GoongService,
     UserRepository,
     OrderRepository,
+    JwtService,
   ],
   exports: [AddressService],
 })
