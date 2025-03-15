@@ -60,6 +60,10 @@ interface AddressDialogProps {
   selectedPlace: PlacePrediction | null;
   onSelectPlace: (place: PlacePrediction) => void;
   triggerButton?: React.ReactNode;
+  onStreetInputChange?: (value: string) => void;
+  onProvinceChange?: (value: string) => void;
+  onDistrictChange?: (value: string) => void;
+  onWardChange?: (value: string) => void;
 }
 
 export function AddressDialog({
@@ -83,6 +87,10 @@ export function AddressDialog({
   selectedPlace,
   onSelectPlace,
   triggerButton,
+  onStreetInputChange,
+  onProvinceChange,
+  onDistrictChange,
+  onWardChange,
 }: AddressDialogProps) {
   const [districts, setDistricts] = useState<{ code: string; name: string }[]>(
     []
@@ -210,7 +218,12 @@ export function AddressDialog({
                   <FormItem>
                     <FormLabel>Tỉnh/Thành phố</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        if (onProvinceChange) {
+                          onProvinceChange(value);
+                        }
+                      }}
                       defaultValue={field.value}
                       value={field.value}
                     >
@@ -240,7 +253,12 @@ export function AddressDialog({
                   <FormItem>
                     <FormLabel>Quận/Huyện</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        if (onDistrictChange) {
+                          onDistrictChange(value);
+                        }
+                      }}
                       defaultValue={field.value}
                       value={field.value}
                       disabled={!provinceValue || districts.length === 0}
@@ -271,7 +289,12 @@ export function AddressDialog({
                   <FormItem>
                     <FormLabel>Phường/Xã</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        if (onWardChange) {
+                          onWardChange(value);
+                        }
+                      }}
                       defaultValue={field.value}
                       value={field.value}
                       disabled={!districtValue || wards.length === 0}
@@ -305,7 +328,10 @@ export function AddressDialog({
                       <div className='relative'>
                         <Input
                           placeholder='Nhập số nhà, tên đường...'
-                          {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            onStreetInputChange?.(e.target.value);
+                          }}
                           disabled={!form.watch('ward')}
                         />
                         {isSearching && (

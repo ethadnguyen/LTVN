@@ -65,14 +65,14 @@ export default function AddressPage() {
   const [isSearching, setIsSearching] = useState(false);
 
   // Giá trị mặc định cho form thêm địa chỉ
-  const defaultAddValues: AddressFormValues = {
+  const [defaultAddValues, setDefaultAddValues] = useState<AddressFormValues>({
     label: 'HOME',
     province: '',
     district: '',
     ward: '',
     street: '',
     note: '',
-  };
+  });
 
   // Giá trị mặc định cho form chỉnh sửa địa chỉ
   const [defaultEditValues, setDefaultEditValues] = useState<AddressFormValues>(
@@ -155,6 +155,52 @@ export default function AddressPage() {
     fetchAddresses(page, pageSize);
   };
 
+  // Xử lý khi nhập vào trường street trong dialog thêm địa chỉ
+  const handleStreetInputChange = (value: string) => {
+    if (isEditDialogOpen) {
+      setDefaultEditValues((prev) => ({ ...prev, street: value }));
+    } else {
+      setDefaultAddValues((prev) => ({ ...prev, street: value }));
+    }
+  };
+
+  // Xử lý khi chọn tỉnh/thành phố
+  const handleProvinceChange = (value: string) => {
+    if (isEditDialogOpen) {
+      setDefaultEditValues((prev) => ({
+        ...prev,
+        province: value,
+        district: '',
+        ward: '',
+      }));
+    } else {
+      setDefaultAddValues((prev) => ({
+        ...prev,
+        province: value,
+        district: '',
+        ward: '',
+      }));
+    }
+  };
+
+  // Xử lý khi chọn quận/huyện
+  const handleDistrictChange = (value: string) => {
+    if (isEditDialogOpen) {
+      setDefaultEditValues((prev) => ({ ...prev, district: value, ward: '' }));
+    } else {
+      setDefaultAddValues((prev) => ({ ...prev, district: value, ward: '' }));
+    }
+  };
+
+  // Xử lý khi chọn phường/xã
+  const handleWardChange = (value: string) => {
+    if (isEditDialogOpen) {
+      setDefaultEditValues((prev) => ({ ...prev, ward: value }));
+    } else {
+      setDefaultAddValues((prev) => ({ ...prev, ward: value }));
+    }
+  };
+
   useEffect(() => {
     const handleAddressSuggestions = async () => {
       if (!selectedPlace) {
@@ -165,19 +211,54 @@ export default function AddressPage() {
         if (streetValue && streetValue.length >= 3) {
           setIsSearching(true);
           try {
-            // Gọi API suggestAddress với các tham số cần thiết
+            // Lấy giá trị province, district, ward từ form
             const provinceValue = isEditDialogOpen
               ? defaultEditValues.province
               : defaultAddValues.province;
+            const districtValue = isEditDialogOpen
+              ? defaultEditValues.district
+              : defaultAddValues.district;
+            const wardValue = isEditDialogOpen
+              ? defaultEditValues.ward
+              : defaultAddValues.ward;
 
             // Lấy tên tỉnh/thành phố từ code
             const provinceObj = provinces.find((p) => p.code === provinceValue);
             const provinceName = provinceObj?.name || '';
 
+            // Lấy tên quận/huyện từ code
+            let districtName = '';
+            if (provinceValue && districtValue) {
+              try {
+                const districts = await getDistricts(provinceValue);
+                const districtObj = districts.find(
+                  (d: { code: string; name: string }) =>
+                    d.code === districtValue
+                );
+                districtName = districtObj?.name || '';
+              } catch (error) {
+                console.error('Lỗi khi lấy thông tin quận/huyện:', error);
+              }
+            }
+
+            // Lấy tên phường/xã từ code
+            let wardName = '';
+            if (districtValue && wardValue) {
+              try {
+                const wards = await getWards(districtValue);
+                const wardObj = wards.find(
+                  (w: { code: string; name: string }) => w.code === wardValue
+                );
+                wardName = wardObj?.name || '';
+              } catch (error) {
+                console.error('Lỗi khi lấy thông tin phường/xã:', error);
+              }
+            }
+
             const suggestions = await suggestAddress(
               provinceName,
-              '', // district
-              '', // ward
+              districtName,
+              wardName,
               streetValue
             );
             setAddressSuggestions(suggestions);
@@ -199,6 +280,10 @@ export default function AddressPage() {
     defaultEditValues.street,
     defaultAddValues.province,
     defaultEditValues.province,
+    defaultAddValues.district,
+    defaultEditValues.district,
+    defaultAddValues.ward,
+    defaultEditValues.ward,
     isEditDialogOpen,
     selectedPlace,
     provinces,
@@ -224,14 +309,50 @@ export default function AddressPage() {
         return;
       }
 
-      const provinceObj = provinces.find((p) => p.code === data.province);
-      const districtObj = provinces.find((d) => d.code === data.district);
-      const wardObj = provinces.find((w) => w.code === data.ward);
-
-      if (!provinceObj || !districtObj || !wardObj) {
+      // Kiểm tra xem đã chọn đủ thông tin địa chỉ chưa
+      if (!data.province || !data.district || !data.ward) {
         toast({
           title: 'Lỗi',
           description: 'Thông tin địa chỉ không đầy đủ. Vui lòng kiểm tra lại.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Lấy tên tỉnh/thành phố từ code
+      const provinceObj = provinces.find((p) => p.code === data.province);
+      if (!provinceObj) {
+        toast({
+          title: 'Lỗi',
+          description: 'Không tìm thấy thông tin tỉnh/thành phố.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Lấy danh sách quận/huyện và tìm tên quận/huyện từ code
+      const districts = await getDistricts(data.province);
+      const districtObj = districts.find(
+        (d: { code: string; name: string }) => d.code === data.district
+      );
+      if (!districtObj) {
+        toast({
+          title: 'Lỗi',
+          description: 'Không tìm thấy thông tin quận/huyện.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Lấy danh sách phường/xã và tìm tên phường/xã từ code
+      const wards = await getWards(data.district);
+      const wardObj = wards.find(
+        (w: { code: string; name: string }) => w.code === data.ward
+      );
+      if (!wardObj) {
+        toast({
+          title: 'Lỗi',
+          description: 'Không tìm thấy thông tin phường/xã.',
           variant: 'destructive',
         });
         return;
@@ -247,6 +368,8 @@ export default function AddressPage() {
         ward: wardObj.name,
         label: data.label,
       };
+
+      console.log('Address data:', addressData);
 
       await createAddress(addressData);
 
@@ -378,35 +501,75 @@ export default function AddressPage() {
     try {
       if (!editingAddress || !selectedPlace) return;
 
-      let provinceName = editingAddress.province;
-      let districtName = editingAddress.district;
-      let wardName = editingAddress.ward;
+      // Kiểm tra xem đã chọn đủ thông tin địa chỉ chưa
+      if (!data.province || !data.district || !data.ward) {
+        // Nếu không đủ thông tin, giữ nguyên thông tin cũ
+        const updateData: UpdateAddressRequest = {
+          id: editingAddress.id,
+          place_id: selectedPlace.place_id,
+          note: data.note || '',
+          street: data.street,
+          label: data.label,
+          province: editingAddress.province,
+          district: editingAddress.district,
+          ward: editingAddress.ward,
+        };
 
-      // Chỉ cập nhật thông tin địa chỉ nếu người dùng đã chọn đầy đủ
-      if (data.province && data.district && data.ward) {
+        await updateAddress(updateData);
+      } else {
+        // Nếu đã chọn đủ thông tin, cập nhật thông tin mới
+        // Lấy tên tỉnh/thành phố từ code
         const provinceObj = provinces.find((p) => p.code === data.province);
-        const districtObj = provinces.find((d) => d.code === data.district);
-        const wardObj = provinces.find((w) => w.code === data.ward);
-
-        if (provinceObj && districtObj && wardObj) {
-          provinceName = provinceObj.name;
-          districtName = districtObj.name;
-          wardName = wardObj.name;
+        if (!provinceObj) {
+          toast({
+            title: 'Lỗi',
+            description: 'Không tìm thấy thông tin tỉnh/thành phố.',
+            variant: 'destructive',
+          });
+          return;
         }
+
+        // Lấy danh sách quận/huyện và tìm tên quận/huyện từ code
+        const districts = await getDistricts(data.province);
+        const districtObj = districts.find(
+          (d: { code: string; name: string }) => d.code === data.district
+        );
+        if (!districtObj) {
+          toast({
+            title: 'Lỗi',
+            description: 'Không tìm thấy thông tin quận/huyện.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        // Lấy danh sách phường/xã và tìm tên phường/xã từ code
+        const wards = await getWards(data.district);
+        const wardObj = wards.find(
+          (w: { code: string; name: string }) => w.code === data.ward
+        );
+        if (!wardObj) {
+          toast({
+            title: 'Lỗi',
+            description: 'Không tìm thấy thông tin phường/xã.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const updateData: UpdateAddressRequest = {
+          id: editingAddress.id,
+          place_id: selectedPlace.place_id,
+          note: data.note || '',
+          street: data.street,
+          label: data.label,
+          province: provinceObj.name,
+          district: districtObj.name,
+          ward: wardObj.name,
+        };
+
+        await updateAddress(updateData);
       }
-
-      const updateData: UpdateAddressRequest = {
-        id: editingAddress.id,
-        place_id: selectedPlace.place_id,
-        note: data.note || '',
-        street: data.street,
-        label: data.label,
-        province: provinceName,
-        district: districtName,
-        ward: wardName,
-      };
-
-      await updateAddress(updateData);
 
       toast({
         title: 'Thành công',
@@ -465,6 +628,14 @@ export default function AddressPage() {
           if (!open) {
             setSelectedPlace(null);
             setAddressSuggestions([]);
+            setDefaultAddValues({
+              label: 'HOME',
+              province: '',
+              district: '',
+              ward: '',
+              street: '',
+              note: '',
+            });
           }
         }}
         onSubmit={handleAddAddress}
@@ -477,6 +648,10 @@ export default function AddressPage() {
         isSearching={isSearching}
         selectedPlace={selectedPlace}
         onSelectPlace={handleSelectPlace}
+        onStreetInputChange={handleStreetInputChange}
+        onProvinceChange={handleProvinceChange}
+        onDistrictChange={handleDistrictChange}
+        onWardChange={handleWardChange}
       />
 
       {/* Dialog sửa địa chỉ */}
@@ -500,6 +675,10 @@ export default function AddressPage() {
         isSearching={isSearching}
         selectedPlace={selectedPlace}
         onSelectPlace={handleSelectPlace}
+        onStreetInputChange={handleStreetInputChange}
+        onProvinceChange={handleProvinceChange}
+        onDistrictChange={handleDistrictChange}
+        onWardChange={handleWardChange}
       />
 
       <div className='grid grid-cols-1 gap-6'>
