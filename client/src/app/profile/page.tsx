@@ -164,7 +164,7 @@ export default function ProfilePage() {
                   className='w-full justify-start'
                   asChild
                 >
-                  <Link href='/profile/orders'>
+                  <Link href='/orders'>
                     <ShoppingBag className='mr-2 h-4 w-4' />
                     Đơn hàng của tôi
                   </Link>
@@ -319,7 +319,7 @@ export default function ProfilePage() {
               </CardContent>
               <CardFooter>
                 <Button asChild>
-                  <Link href='/profile/orders'>
+                  <Link href='/orders'>
                     <ShoppingBag className='mr-2 h-4 w-4' />
                     Xem đơn hàng
                   </Link>

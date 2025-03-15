@@ -12,18 +12,21 @@ import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle2, ChevronRight, Loader2, Plus } from 'lucide-react';
 import { useCartStore } from '@/store/useCartStore';
 import { useToast } from '@/hooks/use-toast';
-import { AddressDialog } from '@/components/address/address-dialog';
 import {
-  getProvinces,
+  AddressDialog,
+  AddressFormValues,
+} from '@/components/address/address-dialog';
+import {
   getAllAddresses,
+  createAddress,
 } from '@/services/modules/address.service';
 import { createOrder } from '@/services/modules/order.service';
 import { createPayment } from '@/services/modules/payment.service';
-import { PlacePrediction } from '@/services/types/response/address_types/address.res';
 import { AddressResponse } from '@/services/types/response/address_types/address.res';
 import { PaymentMethod } from '@/services/types/request/payment_types/payment.req';
 import { useUserStore } from '@/store/useUserStore';
 import { Input } from '@/components/ui/input';
+import { PlacePrediction } from '@/services/types/response/address_types/address.res';
 
 export default function CheckoutPage() {
   const { toast } = useToast();
@@ -50,14 +53,6 @@ export default function CheckoutPage() {
   const [addresses, setAddresses] = useState<AddressResponse[]>([]);
   const [isAddressLoading, setIsAddressLoading] = useState(false);
   const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
-  const [provinces, setProvinces] = useState<{ code: string; name: string }[]>(
-    []
-  );
-  const [addressSuggestions] = useState<PlacePrediction[]>([]);
-  const [isSearching] = useState(false);
-  const [selectedPlace, setSelectedPlace] = useState<PlacePrediction | null>(
-    null
-  );
 
   // Tính toán giá tiền
   const subtotal = cart?.total || 0;
@@ -91,47 +86,60 @@ export default function CheckoutPage() {
       }
     };
 
-    const fetchProvinceData = async () => {
-      try {
-        const data = await getProvinces();
-        setProvinces(data);
-      } catch (error) {
-        console.error('Lỗi khi lấy danh sách tỉnh/thành phố:', error);
-      }
-    };
-
     fetchAddresses();
-    fetchProvinceData();
-  }, [toast]);
+  }, [toast, user?.user_id]);
 
   // Lấy thông tin giỏ hàng
   useEffect(() => {
     fetchCart();
   }, [fetchCart]);
 
-  // Xử lý khi chọn địa điểm từ gợi ý
-  const handleSelectPlace = (place: PlacePrediction) => {
-    setSelectedPlace(place);
-  };
+  const handleAddAddress = async (
+    formData: AddressFormValues,
+    selectedPlace: PlacePrediction
+  ) => {
+    try {
+      // Đóng dialog
+      setIsAddressDialogOpen(false);
 
-  // Xử lý khi thêm địa chỉ mới
-  const handleAddAddress = () => {
-    // Đóng dialog
-    setIsAddressDialogOpen(false);
+      // Tạo địa chỉ mới
+      await createAddress({
+        label: formData.label,
+        province: formData.province,
+        district: formData.district,
+        ward: formData.ward,
+        street: formData.street,
+        note: formData.note,
+        place_id: selectedPlace.place_id,
+        user_id: Number(user?.user_id),
+      });
 
-    // Làm mới danh sách địa chỉ
-    getAllAddresses({
-      page: 1,
-      size: 100,
-      user_id: user?.user_id,
-    }).then((data) => {
+      // Làm mới danh sách địa chỉ
+      const data = await getAllAddresses({
+        page: 1,
+        size: 100,
+        user_id: user?.user_id,
+      });
+
       setAddresses(data.addresses || []);
       if (data.addresses && data.addresses.length > 0) {
         // Chọn địa chỉ mới thêm
         const newAddress = data.addresses[data.addresses.length - 1];
         setSelectedAddress(newAddress.id.toString());
       }
-    });
+
+      toast({
+        title: 'Thành công',
+        description: 'Đã thêm địa chỉ mới',
+      });
+    } catch (error) {
+      console.error('Lỗi khi thêm địa chỉ:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Không thể thêm địa chỉ mới',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Xử lý đặt hàng
@@ -177,7 +185,6 @@ export default function CheckoutPage() {
         total_price: total,
         phone: phoneNumber,
         address_id: parseInt(selectedAddress),
-        amount: total,
         user_id: Number(user?.user_id),
       };
 
@@ -598,14 +605,18 @@ export default function CheckoutPage() {
         isOpen={isAddressDialogOpen}
         onOpenChange={setIsAddressDialogOpen}
         onSubmit={handleAddAddress}
-        provinces={provinces}
         title='Thêm địa chỉ mới'
         description='Nhập thông tin địa chỉ giao hàng của bạn'
         buttonText='Thêm địa chỉ'
-        addressSuggestions={addressSuggestions}
-        isSearching={isSearching}
-        selectedPlace={selectedPlace}
-        onSelectPlace={handleSelectPlace}
+        defaultValues={{
+          label: 'HOME',
+          province: '',
+          district: '',
+          ward: '',
+          street: '',
+          note: '',
+        }}
+        initialSelectedPlace={null}
       />
     </div>
   );

@@ -1,7 +1,16 @@
-import { get, post } from '../api_client';
-import { CreateOrderReq } from '../types/request/order_types/order.req';
+import { del, get, post, put } from '../api_client';
+import {
+  CreateOrderReq,
+  UpdateOrderReq,
+} from '../types/request/order_types/order.req';
 import { OrderListResponse } from '../types/response/order_types/order.res';
 import { OrderResponse } from '../types/response/order_types/order.res';
+
+interface GetAllOrderParams {
+  page?: number;
+  size?: number;
+  user_id: number;
+}
 
 export const createOrder = async (
   data: CreateOrderReq
@@ -15,10 +24,21 @@ export const getOrderById = async (id: number): Promise<OrderResponse> => {
   return res.data;
 };
 
-export const getUserOrders = async (params?: {
-  page?: number;
-  size?: number;
-}): Promise<OrderListResponse> => {
-  const res = await get('/orders/user', params);
+export const getAllOrders = async (
+  params?: GetAllOrderParams
+): Promise<OrderListResponse> => {
+  const res = await get('/orders/all', params);
   return res.data;
+};
+
+export const updateOrder = async (
+  id: number,
+  data: UpdateOrderReq
+): Promise<OrderResponse> => {
+  const res = await put(`/orders/update`, data);
+  return res.data;
+};
+
+export const deleteOrder = async (id: number): Promise<void> => {
+  await del(`/orders/${id}`);
 };

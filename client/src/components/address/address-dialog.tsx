@@ -1,3 +1,4 @@
+'use client';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,7 +33,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus } from 'lucide-react';
 import { PlacePrediction } from '@/services/types/response/address_types/address.res';
-import { getDistricts, getWards } from '@/services/modules/address.service';
+import {
+  getDistricts,
+  getWards,
+  getProvinces,
+  suggestAddress,
+} from '@/services/modules/address.service';
 
 // Schema cho form địa chỉ
 const addressFormSchema = z.object({
@@ -49,28 +55,19 @@ export type AddressFormValues = z.infer<typeof addressFormSchema>;
 interface AddressDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: AddressFormValues) => void;
-  provinces: { code: string; name: string }[];
+  onSubmit: (data: AddressFormValues, selectedPlace: PlacePrediction) => void;
   title: string;
   description: string;
   buttonText: string;
   defaultValues?: AddressFormValues;
-  addressSuggestions: PlacePrediction[];
-  isSearching: boolean;
-  selectedPlace: PlacePrediction | null;
-  onSelectPlace: (place: PlacePrediction) => void;
+  initialSelectedPlace?: PlacePrediction | null;
   triggerButton?: React.ReactNode;
-  onStreetInputChange?: (value: string) => void;
-  onProvinceChange?: (value: string) => void;
-  onDistrictChange?: (value: string) => void;
-  onWardChange?: (value: string) => void;
 }
 
 export function AddressDialog({
   isOpen,
   onOpenChange,
   onSubmit,
-  provinces,
   title,
   description,
   buttonText,
@@ -82,20 +79,26 @@ export function AddressDialog({
     street: '',
     note: '',
   },
-  addressSuggestions,
-  isSearching,
-  selectedPlace,
-  onSelectPlace,
+  initialSelectedPlace = null,
   triggerButton,
-  onStreetInputChange,
-  onProvinceChange,
-  onDistrictChange,
-  onWardChange,
 }: AddressDialogProps) {
+  // State cho dữ liệu địa chỉ
+  const [provinces, setProvinces] = useState<{ code: string; name: string }[]>(
+    []
+  );
   const [districts, setDistricts] = useState<{ code: string; name: string }[]>(
     []
   );
   const [wards, setWards] = useState<{ code: string; name: string }[]>([]);
+
+  // State cho gợi ý địa chỉ
+  const [addressSuggestions, setAddressSuggestions] = useState<
+    PlacePrediction[]
+  >([]);
+  const [selectedPlace, setSelectedPlace] = useState<PlacePrediction | null>(
+    initialSelectedPlace
+  );
+  const [isSearching, setIsSearching] = useState(false);
 
   const form = useForm<AddressFormValues>({
     resolver: zodResolver(addressFormSchema),
@@ -105,15 +108,34 @@ export function AddressDialog({
   // Lấy giá trị của các trường form
   const provinceValue = form.watch('province');
   const districtValue = form.watch('district');
+  const wardValue = form.watch('ward');
+  const streetValue = form.watch('street');
 
-  // Reset form khi dialog đóng
+  // Fetch danh sách tỉnh/thành phố khi component mount
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      try {
+        const data = await getProvinces();
+        setProvinces(data);
+      } catch (error) {
+        console.error('Lỗi khi lấy danh sách tỉnh/thành phố:', error);
+      }
+    };
+
+    fetchProvinces();
+  }, []);
+
+  // Reset form khi dialog đóng hoặc mở với giá trị mặc định mới
   useEffect(() => {
     if (!isOpen) {
       form.reset(defaultValues);
-    } else if (defaultValues) {
+      setSelectedPlace(null);
+      setAddressSuggestions([]);
+    } else {
       form.reset(defaultValues);
+      setSelectedPlace(initialSelectedPlace);
     }
-  }, [isOpen, form]);
+  }, [isOpen, form, defaultValues, initialSelectedPlace]);
 
   // Lấy danh sách quận/huyện khi chọn tỉnh/thành phố
   useEffect(() => {
@@ -160,8 +182,96 @@ export function AddressDialog({
     }
   }, [districtValue, form]);
 
+  // Xử lý gợi ý địa chỉ khi nhập đường
+  useEffect(() => {
+    const handleAddressSuggestions = async () => {
+      if (!selectedPlace) {
+        if (streetValue && streetValue.length >= 3) {
+          setIsSearching(true);
+          try {
+            // Lấy tên tỉnh/thành phố từ code
+            const provinceObj = provinces.find((p) => p.code === provinceValue);
+            const provinceName = provinceObj?.name || '';
+
+            // Lấy tên quận/huyện từ code
+            let districtName = '';
+            if (provinceValue && districtValue) {
+              const districtObj = districts.find(
+                (d) => d.code === districtValue
+              );
+              districtName = districtObj?.name || '';
+            }
+
+            // Lấy tên phường/xã từ code
+            let wardName = '';
+            if (districtValue && wardValue) {
+              const wardObj = wards.find((w) => w.code === wardValue);
+              wardName = wardObj?.name || '';
+            }
+
+            const suggestions = await suggestAddress(
+              provinceName,
+              districtName,
+              wardName,
+              streetValue
+            );
+            setAddressSuggestions(suggestions);
+          } catch (error) {
+            console.error('Lỗi khi lấy gợi ý địa chỉ:', error);
+          } finally {
+            setIsSearching(false);
+          }
+        } else {
+          setAddressSuggestions([]);
+        }
+      }
+    };
+
+    const debounce = setTimeout(handleAddressSuggestions, 500);
+    return () => clearTimeout(debounce);
+  }, [
+    streetValue,
+    provinceValue,
+    districtValue,
+    wardValue,
+    selectedPlace,
+    provinces,
+    districts,
+    wards,
+  ]);
+
+  // Xử lý khi chọn một địa chỉ từ danh sách gợi ý
+  const handleSelectPlace = (place: PlacePrediction) => {
+    setSelectedPlace(place);
+    setAddressSuggestions([]);
+    form.setValue('street', place.structured_formatting.main_text, {
+      shouldValidate: true,
+    });
+  };
+
   const handleFormSubmit = (data: AddressFormValues) => {
-    onSubmit(data);
+    if (!selectedPlace) {
+      return;
+    }
+
+    // Lấy tên tỉnh/thành phố từ code
+    const provinceObj = provinces.find((p) => p.code === data.province);
+    const provinceName = provinceObj?.name || '';
+
+    const districtObj = districts.find((d) => d.code === data.district);
+    const districtName = districtObj?.name || '';
+
+    const wardObj = wards.find((w) => w.code === data.ward);
+    const wardName = wardObj?.name || '';
+
+    const updatedData = {
+      ...data,
+      province: provinceName,
+      district: districtName,
+      ward: wardName,
+    };
+
+    onSubmit(updatedData, selectedPlace);
   };
 
   return (
@@ -218,12 +328,7 @@ export function AddressDialog({
                   <FormItem>
                     <FormLabel>Tỉnh/Thành phố</FormLabel>
                     <Select
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        if (onProvinceChange) {
-                          onProvinceChange(value);
-                        }
-                      }}
+                      onValueChange={field.onChange}
                       defaultValue={field.value}
                       value={field.value}
                     >
@@ -253,12 +358,7 @@ export function AddressDialog({
                   <FormItem>
                     <FormLabel>Quận/Huyện</FormLabel>
                     <Select
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        if (onDistrictChange) {
-                          onDistrictChange(value);
-                        }
-                      }}
+                      onValueChange={field.onChange}
                       defaultValue={field.value}
                       value={field.value}
                       disabled={!provinceValue || districts.length === 0}
@@ -289,12 +389,7 @@ export function AddressDialog({
                   <FormItem>
                     <FormLabel>Phường/Xã</FormLabel>
                     <Select
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        if (onWardChange) {
-                          onWardChange(value);
-                        }
-                      }}
+                      onValueChange={field.onChange}
                       defaultValue={field.value}
                       value={field.value}
                       disabled={!districtValue || wards.length === 0}
@@ -328,10 +423,7 @@ export function AddressDialog({
                       <div className='relative'>
                         <Input
                           placeholder='Nhập số nhà, tên đường...'
-                          onChange={(e) => {
-                            field.onChange(e);
-                            onStreetInputChange?.(e.target.value);
-                          }}
+                          {...field}
                           disabled={!form.watch('ward')}
                         />
                         {isSearching && (
@@ -360,7 +452,7 @@ export function AddressDialog({
                       <div
                         key={place.place_id}
                         className='p-2 hover:bg-muted rounded-md cursor-pointer'
-                        onClick={() => onSelectPlace(place)}
+                        onClick={() => handleSelectPlace(place)}
                       >
                         <p className='font-medium'>
                           {place.structured_formatting.main_text}

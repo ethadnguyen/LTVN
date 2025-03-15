@@ -15,6 +15,7 @@ import { GetAllOrderInput } from './types/get.all.order.input';
 import { OrderStatus } from '../enums/order-status.enum';
 import { PromotionService } from '../../promotions/services/promotion.service';
 import { JwtService } from '@nestjs/jwt';
+import { ProductRepository } from '../../products/repositories/products.repositories';
 
 @Injectable()
 export class OrderService {
@@ -23,9 +24,13 @@ export class OrderService {
     private readonly addressService: AddressService,
     private readonly promotionService: PromotionService,
     private readonly jwtService: JwtService,
+    private readonly productRepository: ProductRepository,
   ) {}
 
-  getUserIdFromToken(authorization: string): number {
+  getUserFromToken(authorization: string): {
+    userId: number;
+    roles: string[];
+  } {
     try {
       if (!authorization) {
         throw new UnauthorizedException('No token provided');
@@ -33,7 +38,10 @@ export class OrderService {
 
       const token = authorization.split(' ')[1];
       const decodedToken = this.jwtService.decode(token);
-      return decodedToken.user_id;
+      return {
+        userId: decodedToken.user_id,
+        roles: decodedToken.roles || [],
+      };
     } catch (error) {
       throw new UnauthorizedException('Invalid token');
     }
@@ -52,11 +60,31 @@ export class OrderService {
       throw new BadRequestException('Address is required');
     }
 
+    // Lấy thông tin sản phẩm từ database để có giá chính xác tại thời điểm đặt hàng
+    const productIds = input.order_items.map((item) => item.product_id);
+    const products = await this.productRepository.findByIds(productIds);
+
+    if (products.length !== productIds.length) {
+      throw new BadRequestException('Some products not found');
+    }
+
     // Xử lý order items
     const orderItems = input.order_items.map((item) => {
+      const product = products.find((p) => p.id === item.product_id);
+      if (!product) {
+        throw new BadRequestException(
+          `Product with id ${item.product_id} not found`,
+        );
+      }
+
       const orderItem = new OrderItem();
       orderItem.quantity = item.quantity;
       orderItem.product = { id: item.product_id } as Product;
+      // Lưu giá của sản phẩm tại thời điểm đặt hàng
+      orderItem.price =
+        product.is_sale && product.sale_price > 0
+          ? product.sale_price
+          : product.price;
       return orderItem;
     });
 
@@ -107,24 +135,6 @@ export class OrderService {
   }
 
   async getAllOrders(queryParams: GetAllOrderInput) {
-    const { page = 1, size = 10 } = queryParams;
-
-    const [orders, total] = await this.orderRepository.findAll({
-      skip: (page - 1) * size,
-      take: size,
-    });
-
-    const totalPages = Math.ceil(total / size);
-
-    return {
-      total,
-      totalPages,
-      currentPage: page,
-      orders,
-    };
-  }
-
-  async getUserOrders(queryParams: GetAllOrderInput) {
     const { page = 1, size = 10, user_id } = queryParams;
 
     const [orders, total] = await this.orderRepository.findAll(
@@ -146,15 +156,20 @@ export class OrderService {
   }
 
   async updateOrder(input: UpdateOrderInput) {
-    const orderItems = input.order_items.map((item) => {
-      const orderItem = new OrderItem();
-      orderItem.quantity = item.quantity;
-      orderItem.product = { id: item.product_id } as Product;
-      return orderItem;
-    });
+    const currentOrder = await this.orderRepository.findById(input.id);
+    if (!currentOrder) {
+      throw new BadRequestException(`Order with id ${input.id} not found`);
+    }
 
-    let address = new Address();
-    if (input.address_id) {
+    let address = currentOrder.address;
+    if (
+      (input.address_id || input.new_address) &&
+      currentOrder.status !== OrderStatus.PENDING
+    ) {
+      throw new BadRequestException(
+        'Không thể thay đổi địa chỉ khi đơn hàng không còn ở trạng thái chờ xử lý',
+      );
+    } else if (input.address_id) {
       address = { id: input.address_id } as Address;
     } else if (input.new_address) {
       address = await this.addressService.createAddressFromGoong(
@@ -162,11 +177,61 @@ export class OrderService {
       );
     }
 
-    return this.orderRepository.update(input.id, {
-      ...input,
-      order_items: orderItems,
-      address: address,
-    });
+    if (input.order_items && input.order_items.length > 0) {
+      if (currentOrder.status !== OrderStatus.PENDING) {
+        throw new BadRequestException(
+          'Không thể thay đổi sản phẩm khi đơn hàng không còn ở trạng thái chờ xử lý',
+        );
+      }
+
+      const productIds = input.order_items.map((item) => item.product_id);
+      const products = await this.productRepository.findByIds(productIds);
+
+      if (products.length !== productIds.length) {
+        throw new BadRequestException('Some products not found');
+      }
+
+      const orderItems = input.order_items.map((item) => {
+        const product = products.find((p) => p.id === item.product_id);
+        if (!product) {
+          throw new BadRequestException(
+            `Product with id ${item.product_id} not found`,
+          );
+        }
+
+        const orderItem = new OrderItem();
+        orderItem.quantity = item.quantity;
+        orderItem.product = { id: item.product_id } as Product;
+        orderItem.price =
+          product.is_sale && product.sale_price > 0
+            ? product.sale_price
+            : product.price;
+        return orderItem;
+      });
+
+      const orderUpdate: Partial<Order> = {};
+
+      if (input.status) orderUpdate.status = input.status;
+      if (input.phone) orderUpdate.phone = input.phone;
+      if (input.total_price) orderUpdate.total_price = input.total_price;
+      if (input.promotion_id) orderUpdate.promotion_id = input.promotion_id;
+
+      orderUpdate.address = address;
+      orderUpdate.order_items = orderItems;
+
+      return this.orderRepository.update(input.id, orderUpdate);
+    }
+
+    const orderUpdate: Partial<Order> = {};
+
+    if (input.status) orderUpdate.status = input.status;
+    if (input.phone) orderUpdate.phone = input.phone;
+    if (input.total_price) orderUpdate.total_price = input.total_price;
+    if (input.promotion_id) orderUpdate.promotion_id = input.promotion_id;
+
+    orderUpdate.address = address;
+
+    return this.orderRepository.update(input.id, orderUpdate);
   }
 
   async deleteOrder(id: number) {

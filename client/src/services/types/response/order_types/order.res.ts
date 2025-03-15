@@ -1,9 +1,17 @@
 import { AddressResponse } from '../address_types/address.res';
 import { PaginationRes } from '../pagination_types/pagination-res';
 
+export enum OrderStatus {
+  PENDING = 'pending',
+  PAID = 'paid',
+  SHIPPING = 'shipping',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
 export interface OrderItemResponse {
   id: number;
   quantity: number;
+  price: number;
   product: {
     id: number;
     name: string;
@@ -19,7 +27,7 @@ export interface OrderResponse {
   total_price: number;
   original_price: number;
   discount_amount: number;
-  status: string;
+  status: OrderStatus;
   created_at: string;
   updated_at: string;
   address: AddressResponse;
