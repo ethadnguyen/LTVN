@@ -1,5 +1,6 @@
 import { CreateAddressInput } from 'src/app/modules/address/services/types/create-address.input';
 import { OrderStatus } from '../../enums/order-status.enum';
+import { PaymentMethod } from '../../enums/payment-method.enum';
 
 export class CreateOrderItemInput {
   product_id: number;
@@ -15,4 +16,5 @@ export class CreateOrderInput {
   new_address?: CreateAddressInput;
   promotion_id?: number;
   user_id?: number;
+  payment_method: PaymentMethod;
 }

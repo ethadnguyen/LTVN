@@ -13,6 +13,7 @@ import { IsArray } from 'class-validator';
 import { CreateOrderItemReq } from './create-order-item.req';
 import { OrderStatus } from '../../enums/order-status.enum';
 import { CreateAddressReq } from 'src/app/modules/address/controllers/types/create-address.req';
+import { PaymentMethod } from '../../enums/payment-method.enum';
 
 export class CreateOrderReq {
   @ApiProperty()
@@ -58,4 +59,10 @@ export class CreateOrderReq {
   })
   @IsNumber()
   user_id: number;
+
+  @ApiProperty({
+    description: 'Phương thức thanh toán',
+  })
+  @IsEnum(PaymentMethod)
+  payment_method: PaymentMethod;
 }

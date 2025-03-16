@@ -26,7 +26,7 @@ export class Payment {
   @Column({
     type: 'enum',
     enum: PaymentMethod,
-    default: PaymentMethod.VNPAY,
+    default: PaymentMethod.BANK_TRANSFER,
   })
   payment_method: PaymentMethod;
 
@@ -44,28 +44,7 @@ export class Payment {
   transaction_id: string;
 
   @Column({ nullable: true })
-  payment_code: string;
-
-  @Column({ type: 'json', nullable: true })
-  payment_data: Record<string, any>;
-
-  @Column({ nullable: true })
   payment_time: Date;
-
-  @Column({ nullable: true })
-  error_code: string;
-
-  @Column({ nullable: true })
-  error_message: string;
-
-  @Column({ nullable: true })
-  retry_count: number;
-
-  @Column({ nullable: true })
-  last_retry_time: Date;
-
-  @Column({ nullable: true })
-  failure_reason: string;
 
   @CreateDateColumn()
   created_at: Date;

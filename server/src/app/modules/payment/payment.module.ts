@@ -1,26 +1,22 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { PaymentController } from './controllers/payment.controller';
-import { PaymentService } from './services/payment.service';
-import { PaymentRepository } from './repositories/payment.repositories';
+import { ConfigModule } from '@nestjs/config';
 import { Payment } from './entities/payment.entity';
 import { Order } from '../orders/entities/order.entity';
-import vnpayConfig from '../../../config/vnpay/vnpay.config';
-import { OrderRepository } from '../orders/repositories/order.repositories';
+import { PaymentController } from './controllers/payment.controller';
+import { PaymentService } from './services/payment.service';
+import { PayosService } from './services/payos.service';
+import { PaymentRepository } from './repositories/payment.repositories';
 import { OrderItem } from '../orders/entities/order-item.entity';
+import { OrderRepository } from '../orders/repositories/order.repositories';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([Payment, Order, OrderItem]),
-    ConfigModule.forFeature(vnpayConfig),
+    ConfigModule,
   ],
   controllers: [PaymentController],
-  providers: [
-    PaymentService,
-    PaymentRepository,
-    OrderRepository,
-    ConfigService,
-  ],
+  providers: [PaymentService, PayosService, PaymentRepository, OrderRepository],
   exports: [PaymentService],
 })
 export class PaymentModule {}

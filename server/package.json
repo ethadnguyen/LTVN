@@ -29,6 +29,7 @@
     "@nestjs/schedule": "^4.1.2",
     "@nestjs/swagger": "^8.1.1",
     "@nestjs/typeorm": "^10.0.2",
+    "@payos/node": "^1.0.10",
     "axios": "^1.7.9",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",

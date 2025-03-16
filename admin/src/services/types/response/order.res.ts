@@ -1,5 +1,5 @@
-import { AddressResponse } from '../address_types/address.res';
-import { PaginationRes } from '../pagination_types/pagination-res';
+import { AddressResponse } from './address.res';
+import { PaginationRes } from './pagination-res';
 
 export enum OrderStatus {
   PENDING = 'pending',
@@ -8,6 +8,7 @@ export enum OrderStatus {
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
 }
+
 export interface OrderItemResponse {
   id: number;
   quantity: number;
@@ -28,8 +29,6 @@ export interface OrderResponse {
   original_price: number;
   discount_amount: number;
   status: OrderStatus;
-  payment_method: string;
-  paid_at: Date;
   created_at: string;
   updated_at: string;
   address: AddressResponse;

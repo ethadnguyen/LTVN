@@ -13,6 +13,8 @@ import { Order } from '../entities/order.entity';
 import { AddressService } from '../../address/services/address.service';
 import { GetAllOrderInput } from './types/get.all.order.input';
 import { OrderStatus } from '../enums/order-status.enum';
+import { PaymentStatus } from '../enums/payment-status.enum';
+import { PaymentMethod } from '../enums/payment-method.enum';
 import { PromotionService } from '../../promotions/services/promotion.service';
 import { JwtService } from '@nestjs/jwt';
 import { ProductRepository } from '../../products/repositories/products.repositories';
@@ -123,6 +125,12 @@ export class OrderService {
     order.status = input.status || OrderStatus.PENDING;
     order.address = address;
 
+    order.payment_method = input.payment_method;
+    order.payment_status = PaymentStatus.UNPAID;
+    if (input.payment_method === PaymentMethod.COD) {
+      order.payment_status = PaymentStatus.PENDING;
+    }
+
     if (input.user_id) {
       order.user_id = input.user_id;
     }
@@ -135,7 +143,7 @@ export class OrderService {
   }
 
   async getAllOrders(queryParams: GetAllOrderInput) {
-    const { page = 1, size = 10, user_id } = queryParams;
+    const { page = 1, size = 10, user_id, status, searchAddress } = queryParams;
 
     const [orders, total] = await this.orderRepository.findAll(
       {
@@ -143,6 +151,8 @@ export class OrderService {
         take: size,
       },
       user_id,
+      status,
+      searchAddress,
     );
 
     const totalPages = Math.ceil(total / size);
@@ -159,6 +169,29 @@ export class OrderService {
     const currentOrder = await this.orderRepository.findById(input.id);
     if (!currentOrder) {
       throw new BadRequestException(`Order with id ${input.id} not found`);
+    }
+
+    // Kiểm tra và cập nhật trạng thái thanh toán
+    if (input.payment_status) {
+      if (input.payment_status === PaymentStatus.PAID && !input.paid_at) {
+        input.paid_at = new Date();
+      }
+
+      // Nếu đơn hàng được đánh dấu là đã thanh toán
+      if (input.payment_status === PaymentStatus.PAID) {
+        // Tự động cập nhật trạng thái đơn hàng thành SHIPPING nếu đang ở PENDING
+        if (currentOrder.status === OrderStatus.PENDING) {
+          input.status = OrderStatus.SHIPPING;
+        }
+      }
+
+      if (input.status === OrderStatus.CANCELLED) {
+        if (currentOrder.payment_status === PaymentStatus.PAID) {
+          input.payment_status = PaymentStatus.REFUNDED;
+        } else {
+          input.payment_status = PaymentStatus.FAILED;
+        }
+      }
     }
 
     let address = currentOrder.address;
@@ -209,27 +242,31 @@ export class OrderService {
         return orderItem;
       });
 
-      const orderUpdate: Partial<Order> = {};
-
-      if (input.status) orderUpdate.status = input.status;
-      if (input.phone) orderUpdate.phone = input.phone;
-      if (input.total_price) orderUpdate.total_price = input.total_price;
-      if (input.promotion_id) orderUpdate.promotion_id = input.promotion_id;
-
-      orderUpdate.address = address;
-      orderUpdate.order_items = orderItems;
+      const orderUpdate: Partial<Order> = {
+        status: input.status,
+        phone: input.phone,
+        total_price: input.total_price,
+        promotion_id: input.promotion_id,
+        payment_status: input.payment_status,
+        payment_method: input.payment_method,
+        paid_at: input.paid_at,
+        address,
+        order_items: orderItems,
+      };
 
       return this.orderRepository.update(input.id, orderUpdate);
     }
 
-    const orderUpdate: Partial<Order> = {};
-
-    if (input.status) orderUpdate.status = input.status;
-    if (input.phone) orderUpdate.phone = input.phone;
-    if (input.total_price) orderUpdate.total_price = input.total_price;
-    if (input.promotion_id) orderUpdate.promotion_id = input.promotion_id;
-
-    orderUpdate.address = address;
+    const orderUpdate: Partial<Order> = {
+      status: input.status,
+      phone: input.phone,
+      total_price: input.total_price,
+      promotion_id: input.promotion_id,
+      payment_status: input.payment_status,
+      payment_method: input.payment_method,
+      paid_at: input.paid_at,
+      address,
+    };
 
     return this.orderRepository.update(input.id, orderUpdate);
   }

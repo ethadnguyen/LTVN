@@ -1,50 +1,84 @@
 import {
-  Controller,
-  Post,
-  Get,
   Body,
+  Controller,
+  Get,
+  Headers,
   Param,
-  Query,
-  Redirect,
+  Post,
+  Put,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { PaymentService } from '../services/payment.service';
-import { VnPayCallbackDto } from '../dto/vnpay-callback.dto';
-import { Payment } from '../entities/payment.entity';
-import { CreatePaymentReq } from './types/create-payment.req';
+import {
+  CreatePaymentDto,
+  PaymentCallbackDto,
+  UpdatePaymentStatusDto,
+} from '../services/types/payment.types';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { WebhookType } from '../interfaces/webhook.type';
+
 @Controller('payments')
+@ApiTags('Payment')
+@ApiBearerAuth()
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
-  @Post('create')
-  async createPayment(
-    @Body() createPaymentReq: CreatePaymentReq,
-  ): Promise<{ payment: Payment; paymentUrl: string }> {
-    const payment = await this.paymentService.createPayment(createPaymentReq);
-    const paymentUrl = await this.paymentService.createVnPayUrl(payment);
-    return { payment, paymentUrl };
+  @Post()
+  async createPayment(@Body() createPaymentDto: CreatePaymentDto) {
+    return this.paymentService.createPayment(createPaymentDto);
   }
 
   @Get('order/:orderId')
-  async getPaymentsByOrderId(
-    @Param('orderId') orderId: number,
-  ): Promise<Payment[]> {
-    return this.paymentService.getPaymentsByOrderId(orderId);
+  async getPaymentByOrderId(@Param('orderId') orderId: number) {
+    return this.paymentService.getPaymentByOrderId(orderId);
   }
 
-  @Get('vnpay/return')
-  @Redirect()
-  async handleVnPayReturn(@Query() query: VnPayCallbackDto) {
-    try {
-      const payment = await this.paymentService.handleVnPayCallback(query);
+  @Put(':id/status')
+  async updatePaymentStatus(
+    @Param('id') id: number,
+    @Body() updateStatusDto: UpdatePaymentStatusDto,
+  ) {
+    return this.paymentService.updatePaymentStatus(id, updateStatusDto);
+  }
 
-      // Chuyển hướng về trang frontend với kết quả
+  @Post('callback')
+  async handlePaymentCallback(@Body() callbackData: PaymentCallbackDto) {
+    return this.paymentService.handlePaymentCallback(callbackData);
+  }
+
+  @Post('webhook')
+  async handlePaymentWebhook(
+    @Body() webhookData: WebhookType,
+    @Headers('x-payos-signature') signature: string,
+  ) {
+    const isValid = await this.paymentService.verifyPaymentWebhook(
+      webhookData,
+      signature,
+    );
+
+    if (!isValid) {
       return {
-        url: `/payment-result?status=${payment.status}&orderId=${payment.order_id}`,
-      };
-    } catch (error) {
-      return {
-        url: `/payment-result?status=error&message=${error.message}`,
+        success: false,
+        message: 'Chữ ký không hợp lệ',
       };
     }
+
+    // Xử lý dữ liệu webhook
+    const orderIdParts = webhookData.data.orderCode.toString().split('_');
+    const orderId =
+      orderIdParts.length > 1
+        ? parseInt(orderIdParts[0])
+        : parseInt(orderIdParts[0]);
+
+    const paymentData: PaymentCallbackDto = {
+      order_id: orderId,
+      status: webhookData.data.code === '00' ? 'SUCCESS' : 'FAILED',
+      amount: webhookData.data.amount,
+      transaction_id: webhookData.data.reference,
+      payment_time: new Date(webhookData.data.transactionDateTime),
+    };
+
+    return this.paymentService.handlePaymentCallback(paymentData);
   }
 }

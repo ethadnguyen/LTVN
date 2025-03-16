@@ -1,366 +1,271 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Payment } from '../entities/payment.entity';
-import { VnPayCallbackDto } from '../dto/vnpay-callback.dto';
-import { PaymentStatus } from '../enums/payment-status.enum';
-import { Order } from '../../orders/entities/order.entity';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PaymentRepository } from '../repositories/payment.repositories';
-import { CreatePaymentInput } from './types/create-payment.input';
-import { OrderStatus } from '../../orders/enums/order-status.enum';
-import * as crypto from 'crypto';
+import { PayosService } from './payos.service';
+import { PaymentMethod } from '../enums/payment-method.enum';
+import { PaymentStatus } from '../enums/payment-status.enum';
+import {
+  CreatePaymentDto,
+  PaymentCallbackDto,
+  PaymentResponse,
+  UpdatePaymentStatusDto,
+} from './types/payment.types';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Order } from '../../orders/entities/order.entity';
+import { PaymentStatus as OrderPaymentStatus } from '../../orders/enums/payment-status.enum';
 import { OrderRepository } from '../../orders/repositories/order.repositories';
 
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
-  private readonly MAX_RETRY_COUNT = 3;
-  private readonly RETRY_DELAY_MINUTES = 30;
 
   constructor(
     private readonly paymentRepository: PaymentRepository,
+    private readonly payosService: PayosService,
     private readonly orderRepository: OrderRepository,
-    private configService: ConfigService,
   ) {}
 
   async createPayment(
-    createPaymentInput: CreatePaymentInput,
-  ): Promise<Payment> {
+    createPaymentDto: CreatePaymentDto,
+  ): Promise<PaymentResponse> {
     try {
-      if (createPaymentInput.amount <= 0) {
-        throw new BadRequestException('Amount must be greater than 0');
-      }
+      const { order_id, amount, payment_method } = createPaymentDto;
 
-      const order = await this.orderRepository.findById(
-        createPaymentInput.order_id,
-      );
-
+      // Kiểm tra đơn hàng tồn tại
+      const order = await this.orderRepository.findById(order_id);
       if (!order) {
-        throw new BadRequestException('Order not found');
+        return {
+          success: false,
+          message: `Không tìm thấy đơn hàng với ID: ${order_id}`,
+        };
       }
 
-      const payment =
-        await this.paymentRepository.createPaymentWithTransaction(
-          createPaymentInput,
-        );
+      // Kiểm tra xem đã có thanh toán cho đơn hàng này chưa
+      const existingPayment =
+        await this.paymentRepository.findByOrderId(order_id);
+      if (existingPayment) {
+        // Nếu đã thanh toán thành công, trả về thông báo
+        if (existingPayment.status === PaymentStatus.SUCCESS) {
+          return {
+            success: false,
+            message: 'Đơn hàng này đã được thanh toán',
+          };
+        }
 
-      this.logger.log(`Created payment for order ${order.id}`);
-      return payment;
-    } catch (error) {
-      this.logger.error(
-        `Failed to create payment: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
-
-  async createVnPayUrl(
-    payment: Payment,
-    ipAddr: string = '127.0.0.1',
-  ): Promise<string> {
-    try {
-      const vnpConfig = this.configService.get('vnpay');
-      const vnpUrl = vnpConfig.vnp_Url;
-      const returnUrl = vnpConfig.vnp_ReturnUrl;
-      const tmnCode = vnpConfig.vnp_TmnCode;
-      const hashSecret = vnpConfig.vnp_HashSecret;
-
-      const date = new Date();
-      const createDate = date.toISOString().replace(/[-:]/g, '').split('.')[0];
-
-      const orderId = `${payment.id}_${Date.now()}`;
-      const amount = payment.amount * 100; // Convert to VND
-
-      const orderInfo = `Thanh toan don hang #${payment.order_id}`;
-      const orderType = 'billpayment';
-      const locale = 'vn';
-
-      const vnpParams = {
-        vnp_Version: '2.1.0',
-        vnp_Command: 'pay',
-        vnp_TmnCode: tmnCode,
-        vnp_Locale: locale,
-        vnp_CurrCode: 'VND',
-        vnp_TxnRef: orderId,
-        vnp_OrderInfo: orderInfo,
-        vnp_OrderType: orderType,
-        vnp_Amount: amount,
-        vnp_ReturnUrl: returnUrl,
-        vnp_IpAddr: ipAddr,
-        vnp_CreateDate: createDate,
-      };
-
-      const sortedParams = this.sortObject(vnpParams);
-      const signData = this.createQueryString(sortedParams);
-      const hmac = crypto.createHmac('sha512', hashSecret);
-      const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
-
-      vnpParams['vnp_SecureHash'] = signed;
-
-      this.logger.log(`Created VNPay URL for payment ${payment.id}`);
-      return `${vnpUrl}?${this.createQueryString(vnpParams)}`;
-    } catch (error) {
-      this.logger.error(
-        `Failed to create VNPay URL: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
-
-  async handleVnPayCallback(callbackData: VnPayCallbackDto): Promise<Payment> {
-    try {
-      // Xác thực chữ ký
-      const isValid = this.validateVnPaySignature(callbackData);
-      if (!isValid) {
-        throw new BadRequestException('Invalid signature');
-      }
-
-      // Tìm payment dựa trên vnp_TxnRef
-      const paymentId = callbackData.vnp_TxnRef.split('_')[0];
-      const payment = await this.paymentRepository.findPaymentById(
-        parseInt(paymentId),
-      );
-
-      if (!payment) {
-        throw new BadRequestException('Payment not found');
-      }
-
-      // Xử lý kết quả thanh toán
-      if (callbackData.vnp_ResponseCode === '00') {
-        // Thanh toán thành công
-        return await this.handleSuccessfulPayment(payment, callbackData);
+        // Nếu đang chờ thanh toán, cập nhật phương thức thanh toán
+        await this.paymentRepository.update(existingPayment.id, {
+          payment_method,
+        });
       } else {
-        // Thanh toán thất bại
-        return await this.handleFailedPayment(payment, callbackData);
+        // Tạo mới thanh toán
+        await this.paymentRepository.create({
+          order_id,
+          amount,
+          payment_method,
+          status: PaymentStatus.PENDING,
+        });
+      }
+
+      // Xử lý theo phương thức thanh toán
+      switch (payment_method) {
+        case PaymentMethod.BANK_TRANSFER:
+          return this.processBankTransfer(order_id, amount);
+        case PaymentMethod.COD:
+          return this.processCodPayment(order_id);
+        default:
+          return {
+            success: false,
+            message: 'Phương thức thanh toán không được hỗ trợ',
+          };
       }
     } catch (error) {
       this.logger.error(
-        `Failed to handle VNPay callback: ${error.message}`,
+        `Error creating payment: ${error.message}`,
         error.stack,
       );
-      throw error;
+      return {
+        success: false,
+        message: `Lỗi khi tạo thanh toán: ${error.message}`,
+      };
     }
   }
 
-  private async handleSuccessfulPayment(
-    payment: Payment,
-    callbackData: VnPayCallbackDto,
-  ): Promise<Payment> {
-    // Cập nhật trạng thái payment
-    const updatedPayment = await this.paymentRepository.updatePaymentStatus(
-      payment.id,
-      PaymentStatus.SUCCESS,
-      callbackData,
-    );
-
-    // Cập nhật trạng thái order
-    await this.orderRepository.update(payment.order_id, {
-      status: OrderStatus.PAID,
-    });
-
-    this.logger.log(`Payment ${payment.id} completed successfully`);
-    return updatedPayment;
-  }
-
-  private async handleFailedPayment(
-    payment: Payment,
-    callbackData: VnPayCallbackDto,
-  ): Promise<Payment> {
-    const retryCount = (payment.retry_count || 0) + 1;
-    const lastRetryTime = new Date();
-
-    // Cập nhật thông tin lỗi
-    const updatedPayment = await this.paymentRepository.updatePaymentStatus(
-      payment.id,
-      PaymentStatus.FAILED,
-      {
-        ...callbackData,
-        error_code: callbackData.vnp_ResponseCode,
-        error_message: this.getErrorMessage(callbackData.vnp_ResponseCode),
-        retry_count: retryCount,
-        last_retry_time: lastRetryTime,
-        failure_reason: this.getFailureReason(callbackData.vnp_ResponseCode),
-      },
-    );
-
-    // Kiểm tra xem có thể thử lại không
-    if (retryCount < this.MAX_RETRY_COUNT) {
-      this.logger.log(
-        `Payment ${payment.id} failed. Retry count: ${retryCount}/${this.MAX_RETRY_COUNT}`,
-      );
-    } else {
-      this.logger.error(
-        `Payment ${payment.id} failed permanently after ${retryCount} attempts`,
-      );
-      // Có thể thêm logic xử lý khi đã hết số lần thử lại
-      // Ví dụ: gửi email thông báo, tạo ticket support, etc.
-    }
-
-    return updatedPayment;
-  }
-
-  private getErrorMessage(responseCode: string): string {
-    const errorMessages: Record<string, string> = {
-      '01': 'Giao dịch chưa hoàn tất',
-      '02': 'Giao dịch đã tồn tại',
-      '03': 'Mã đơn hàng không tồn tại',
-      '04': 'Số tiền không hợp lệ',
-      '05': 'Tài khoản không đủ số dư',
-      '06': 'Ngân hàng đang bảo trì',
-      '07': 'Giao dịch bị từ chối',
-      '08': 'Thông tin tài khoản không chính xác',
-      '09': 'Tài khoản bị khóa',
-      '10': 'Giao dịch đã hết hạn',
-      '11': 'Mã giao dịch không tồn tại',
-      '12': 'Giao dịch không hợp lệ',
-      '13': 'Giao dịch đã bị hủy',
-      '14': 'Giao dịch đã được hoàn tiền',
-      '15': 'Giao dịch đang xử lý',
-      '16': 'Giao dịch đã được duyệt',
-      '17': 'Giao dịch đã bị từ chối',
-      '18': 'Giao dịch đã bị hủy',
-      '19': 'Giao dịch đã được hoàn tiền',
-      '20': 'Giao dịch đang xử lý',
-      '21': 'Giao dịch đã được duyệt',
-      '22': 'Giao dịch đã bị từ chối',
-      '23': 'Giao dịch đã bị hủy',
-      '24': 'Giao dịch đã được hoàn tiền',
-      '25': 'Giao dịch đang xử lý',
-      '26': 'Giao dịch đã được duyệt',
-      '27': 'Giao dịch đã bị từ chối',
-      '28': 'Giao dịch đã bị hủy',
-      '29': 'Giao dịch đã được hoàn tiền',
-      '30': 'Giao dịch đang xử lý',
-      '31': 'Giao dịch đã được duyệt',
-      '32': 'Giao dịch đã bị từ chối',
-      '33': 'Giao dịch đã bị hủy',
-      '34': 'Giao dịch đã được hoàn tiền',
-      '35': 'Giao dịch đang xử lý',
-      '36': 'Giao dịch đã được duyệt',
-      '37': 'Giao dịch đã bị từ chối',
-      '38': 'Giao dịch đã bị hủy',
-      '39': 'Giao dịch đã được hoàn tiền',
-      '40': 'Giao dịch đang xử lý',
-      '41': 'Giao dịch đã được duyệt',
-      '42': 'Giao dịch đã bị từ chối',
-      '43': 'Giao dịch đã bị hủy',
-      '44': 'Giao dịch đã được hoàn tiền',
-      '45': 'Giao dịch đang xử lý',
-      '46': 'Giao dịch đã được duyệt',
-      '47': 'Giao dịch đã bị từ chối',
-      '48': 'Giao dịch đã bị hủy',
-      '49': 'Giao dịch đã được hoàn tiền',
-      '50': 'Giao dịch đang xử lý',
-      '51': 'Giao dịch đã được duyệt',
-      '52': 'Giao dịch đã bị từ chối',
-      '53': 'Giao dịch đã bị hủy',
-      '54': 'Giao dịch đã được hoàn tiền',
-      '55': 'Giao dịch đang xử lý',
-      '56': 'Giao dịch đã được duyệt',
-      '57': 'Giao dịch đã bị từ chối',
-      '58': 'Giao dịch đã bị hủy',
-      '59': 'Giao dịch đã được hoàn tiền',
-      '60': 'Giao dịch đang xử lý',
-      '61': 'Giao dịch đã được duyệt',
-      '62': 'Giao dịch đã bị từ chối',
-      '63': 'Giao dịch đã bị hủy',
-      '64': 'Giao dịch đã được hoàn tiền',
-      '65': 'Giao dịch đang xử lý',
-      '66': 'Giao dịch đã được duyệt',
-      '67': 'Giao dịch đã bị từ chối',
-      '68': 'Giao dịch đã bị hủy',
-      '69': 'Giao dịch đã được hoàn tiền',
-      '70': 'Giao dịch đang xử lý',
-      '71': 'Giao dịch đã được duyệt',
-      '72': 'Giao dịch đã bị từ chối',
-      '73': 'Giao dịch đã bị hủy',
-      '74': 'Giao dịch đã được hoàn tiền',
-      '75': 'Giao dịch đang xử lý',
-      '76': 'Giao dịch đã được duyệt',
-      '77': 'Giao dịch đã bị từ chối',
-      '78': 'Giao dịch đã bị hủy',
-      '79': 'Giao dịch đã được hoàn tiền',
-      '80': 'Giao dịch đang xử lý',
-      '81': 'Giao dịch đã được duyệt',
-      '82': 'Giao dịch đã bị từ chối',
-      '83': 'Giao dịch đã bị hủy',
-      '84': 'Giao dịch đã được hoàn tiền',
-      '85': 'Giao dịch đang xử lý',
-      '86': 'Giao dịch đã được duyệt',
-      '87': 'Giao dịch đã bị từ chối',
-      '88': 'Giao dịch đã bị hủy',
-      '89': 'Giao dịch đã được hoàn tiền',
-      '90': 'Giao dịch đang xử lý',
-      '91': 'Giao dịch đã được duyệt',
-      '92': 'Giao dịch đã bị từ chối',
-      '93': 'Giao dịch đã bị hủy',
-      '94': 'Giao dịch đã được hoàn tiền',
-      '95': 'Giao dịch đang xử lý',
-      '96': 'Giao dịch đã được duyệt',
-      '97': 'Giao dịch đã bị từ chối',
-      '98': 'Giao dịch đã bị hủy',
-      '99': 'Giao dịch đã được hoàn tiền',
-    };
-
-    return errorMessages[responseCode] || 'Lỗi không xác định';
-  }
-
-  private getFailureReason(responseCode: string): string {
-    const failureReasons: Record<string, string> = {
-      '01': 'Giao dịch chưa hoàn tất',
-      '02': 'Giao dịch đã tồn tại',
-      '03': 'Mã đơn hàng không tồn tại',
-      '04': 'Số tiền không hợp lệ',
-      '05': 'Tài khoản không đủ số dư',
-      '06': 'Ngân hàng đang bảo trì',
-      '07': 'Giao dịch bị từ chối',
-      '08': 'Thông tin tài khoản không chính xác',
-      '09': 'Tài khoản bị khóa',
-      '10': 'Giao dịch đã hết hạn',
-    };
-
-    return failureReasons[responseCode] || 'Lỗi không xác định';
-  }
-
-  async getPaymentsByOrderId(orderId: number): Promise<Payment[]> {
-    return this.paymentRepository.findPaymentsByOrderId(orderId);
-  }
-
-  private sortObject(obj: any): any {
-    const sorted = {};
-    const str = [];
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        str.push(encodeURIComponent(key));
+  private async processBankTransfer(
+    orderId: number,
+    amount: number,
+  ): Promise<PaymentResponse> {
+    try {
+      // Lấy thông tin chi tiết về đơn hàng bao gồm các sản phẩm
+      const order = await this.orderRepository.findById(orderId);
+      if (!order || !order.order_items || order.order_items.length === 0) {
+        throw new Error(
+          `Không tìm thấy thông tin chi tiết đơn hàng: ${orderId}`,
+        );
       }
+
+      // Tạo danh sách items cho PayOS
+      const paymentItems = order.order_items.map((item) => ({
+        name: item.product ? item.product.name : `Sản phẩm #${item.product.id}`,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      const description = `Thanh toán đơn hàng #${orderId}`;
+      return this.payosService.createPaymentLink(
+        orderId,
+        amount,
+        description,
+        paymentItems,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error processing bank transfer: ${error.message}`,
+        error.stack,
+      );
+      const description = `Thanh toán đơn hàng #${orderId}`;
+      return this.payosService.createPaymentLink(orderId, amount, description);
     }
-    str.sort();
-    for (const key of str) {
-      sorted[key] = obj[key];
-    }
-    return sorted;
   }
 
-  private createQueryString(obj: any): string {
-    return Object.keys(obj)
-      .map(
-        (key) => `${encodeURIComponent(key)}=${encodeURIComponent(obj[key])}`,
-      )
-      .join('&');
+  private async processCodPayment(orderId: number): Promise<PaymentResponse> {
+    try {
+      const payment = await this.paymentRepository.findByOrderId(orderId);
+      if (payment) {
+        await this.paymentRepository.update(payment.id, {
+          status: PaymentStatus.PENDING,
+        });
+      }
+
+      await this.orderRepository.update(orderId, {
+        payment_method: PaymentMethod.COD,
+      });
+
+      return {
+        success: true,
+        message:
+          'Đơn hàng đã được đặt thành công với phương thức thanh toán COD',
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error processing COD payment: ${error.message}`,
+        error.stack,
+      );
+      return {
+        success: false,
+        message: `Lỗi khi xử lý thanh toán COD: ${error.message}`,
+      };
+    }
   }
 
-  private validateVnPaySignature(callbackData: VnPayCallbackDto): boolean {
-    const vnpConfig = this.configService.get('vnpay');
-    const hashSecret = vnpConfig.vnp_HashSecret;
-    const secureHash = callbackData.vnp_SecureHash;
-    delete callbackData.vnp_SecureHash;
+  async handlePaymentCallback(
+    paymentCallbackDto: PaymentCallbackDto,
+  ): Promise<PaymentResponse> {
+    try {
+      const { order_id, status, transaction_id, payment_time } =
+        paymentCallbackDto;
 
-    const sortedParams = this.sortObject(callbackData);
-    const signData = this.createQueryString(sortedParams);
-    const hmac = crypto.createHmac('sha512', hashSecret);
-    const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
+      // Tìm thanh toán theo order_id
+      const payment = await this.paymentRepository.findByOrderId(order_id);
+      if (!payment) {
+        return {
+          success: false,
+          message: `Không tìm thấy thanh toán cho đơn hàng: ${order_id}`,
+        };
+      }
 
-    return secureHash === signed;
+      const paymentStatus =
+        status.toUpperCase() === 'SUCCESS'
+          ? PaymentStatus.SUCCESS
+          : PaymentStatus.FAILED;
+
+      await this.paymentRepository.update(payment.id, {
+        status: paymentStatus,
+        transaction_id,
+        payment_time,
+      });
+
+      // Cập nhật trạng thái đơn hàng
+      if (paymentStatus === PaymentStatus.SUCCESS) {
+        await this.orderRepository.update(order_id, {
+          payment_status: OrderPaymentStatus.PAID,
+          paid_at: payment_time,
+        });
+      }
+
+      return {
+        success: true,
+        message: `Cập nhật trạng thái thanh toán thành công: ${paymentStatus}`,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error handling payment callback: ${error.message}`,
+        error.stack,
+      );
+      return {
+        success: false,
+        message: `Lỗi khi xử lý callback thanh toán: ${error.message}`,
+      };
+    }
+  }
+
+  async getPaymentByOrderId(orderId: number) {
+    const payment = await this.paymentRepository.findByOrderId(orderId);
+    if (!payment) {
+      throw new NotFoundException(
+        `Không tìm thấy thanh toán cho đơn hàng: ${orderId}`,
+      );
+    }
+    return payment;
+  }
+
+  async updatePaymentStatus(
+    paymentId: number,
+    updateStatusDto: UpdatePaymentStatusDto,
+  ): Promise<PaymentResponse> {
+    try {
+      const payment = await this.paymentRepository.findById(paymentId);
+      if (!payment) {
+        return {
+          success: false,
+          message: `Không tìm thấy thanh toán với ID: ${paymentId}`,
+        };
+      }
+
+      const paymentStatus = updateStatusDto.status as unknown as PaymentStatus;
+      await this.paymentRepository.update(paymentId, {
+        status: paymentStatus,
+        transaction_id: updateStatusDto.transaction_id,
+        payment_time: updateStatusDto.payment_time,
+      });
+
+      // Nếu thanh toán thành công, cập nhật trạng thái đơn hàng
+      if (updateStatusDto.status === PaymentStatus.SUCCESS) {
+        await this.orderRepository.update(payment.order_id, {
+          payment_status: OrderPaymentStatus.PAID,
+          paid_at: updateStatusDto.payment_time || new Date(),
+        });
+      }
+
+      return {
+        success: true,
+        message: 'Cập nhật trạng thái thanh toán thành công',
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error updating payment status: ${error.message}`,
+        error.stack,
+      );
+      return {
+        success: false,
+        message: `Lỗi khi cập nhật trạng thái thanh toán: ${error.message}`,
+      };
+    }
+  }
+
+  async verifyPaymentWebhook(
+    webhookData: any,
+    signature: string,
+  ): Promise<boolean> {
+    return this.payosService.verifyPaymentWebhook(webhookData, signature);
   }
 }

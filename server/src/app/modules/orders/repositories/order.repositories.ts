@@ -42,6 +42,8 @@ export class OrderRepository {
       take: number;
     },
     user_id?: number,
+    status?: string,
+    searchAddress?: string,
   ): Promise<[Order[], number]> {
     const queryBuilder = this.orderRepository.createQueryBuilder('order');
 
@@ -51,6 +53,17 @@ export class OrderRepository {
 
     if (user_id) {
       queryBuilder.where('order.user_id = :user_id', { user_id });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('order.status = :status', { status });
+    }
+
+    if (searchAddress) {
+      queryBuilder.andWhere(
+        'address.street LIKE :search OR address.ward LIKE :search OR address.district LIKE :search OR address.province LIKE :search',
+        { search: `%${searchAddress}%` },
+      );
     }
 
     queryBuilder.orderBy('order.created_at', 'DESC');
@@ -63,33 +76,27 @@ export class OrderRepository {
   }
 
   async update(id: number, order: Partial<Order>): Promise<Order> {
-    // Nếu có cập nhật order items
     if (order.order_items) {
-      // Xóa order items cũ
       await this.orderItemRepository
         .createQueryBuilder()
         .delete()
         .where('order_id = :id', { id })
         .execute();
 
-      // Thêm order items mới
       const orderItems = order.order_items.map((item) => {
         item.order = { id } as Order;
         return item;
       });
       await this.orderItemRepository.save(orderItems);
 
-      // Xóa order_items khỏi object update để tránh lỗi
       delete order.order_items;
     }
 
-    // Cập nhật order
     await this.orderRepository.update(id, order);
     return this.findById(id);
   }
 
   async delete(id: number): Promise<void> {
-    // OrderItems sẽ tự động bị xóa do cascade
     await this.orderRepository.delete(id);
   }
 }
